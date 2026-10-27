@@ -2,7 +2,8 @@
 
 Control panel for the Brother MFC-L2710DW on Linux — an equivalent of Brother iPrint&Scan (Windows/Android/iOS), which does not officially exist for Linux. Tauri 2: native window, tray, autostart.
 
-- Status: M0 ✅ 26.10.2026, M1 in progress (branch `m1-scan`)
+- Status: M0 ✅ 26.10.2026; M1 ✅, M2 ✅ 27.10.2026 (work on `main`); M2.5
+  (history, print queue, ADF merge) — specs and plan ready, implementation pending
 - Author: bumbarasch
 - Date: 2026-10-26 (revision 27.10.2026)
 - Currency: device facts — M0 spike 26.10.2026; stack versions
@@ -420,7 +421,7 @@ Crate policy: a new crate — only with a justification in the commit descriptio
 | Stage | Contents | Readiness criterion |
 |---|---|---|
 | M0 Spike ✅ 26.10.2026 | eSCL end-to-end (curl): JPEG and PDF scan, errors; SNMP OIDs + verification against the web, independent `snmpwalk` check; discrepancies with the PRD found | `docs/escl-l2710dw.md`, `docs/oids-l2710dw.md`, fixtures in `fixtures/` |
-| M1 Skeleton 🚧 27.10.2026 | Tauri 2 scaffold (window+tray+plugins), `config.rs`, `escl.rs`, "Scan" screen | scan → PDF into the folder from the app window |
+| M1 Skeleton ✅ 27.10.2026 | Tauri 2 scaffold (window+tray+plugins), `config.rs`, `escl.rs`, "Scan" screen | scan → PDF into the folder from the app window (600 dpi variant deferred to a future device session) |
 | M2 Shell and overview ✅ 27.10.2026 | navigation shell (sidebar + icon rail), `snmp/` (batched GET, blob parsing), `status/` (cache, 5-min polling, `status` event), «Обзор» screen; the print screen stays in M3 | toner/status matches the web panel (live check 27.10.2026, `docs/oids-l2710dw.md` §6) |
 | M3 Printing | `print.rs` (lp/lpstat/cancel), F3 screen | printing with duplex options from the UI |
 | M4 Monitoring | `history.rs`, notifications, chart, tray menu | notification when toner < 15 % |
