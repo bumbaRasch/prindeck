@@ -2,8 +2,8 @@
 
 Control panel for the Brother MFC-L2710DW on Linux — an equivalent of Brother iPrint&Scan (Windows/Android/iOS), which does not officially exist for Linux. Tauri 2: native window, tray, autostart.
 
-- Status: M0 ✅ 26.10.2026; M1 ✅, M2 ✅ 27.10.2026 (work on `main`); M2.5
-  (history, print queue, ADF merge) — specs and plan ready, implementation pending
+- Status: M0 ✅ 26.10.2026 · M1 ✅ · M2 ✅ 27.10.2026 · M2.5 ✅ 27.10.2026
+  (live device acceptance pending, §14)
 - Author: bumbarasch
 - Date: 2026-10-26 (revision 27.10.2026)
 - Currency: device facts — M0 spike 26.10.2026; stack versions
@@ -96,9 +96,10 @@ the `lp`/`scanimage` CLI. There is no single window: status + toner + scan + pri
   150 is absent (the device silently substitutes 300 for it, checked at M0).
 - Color: `RGB24` / `Grayscale8` / `BlackAndWhite1` — exact names from capabilities.
   The pair `BlackAndWhite1` + JPEG on the device yields `409` — validate before sending.
-- Output format: JPEG (per page) / PDF (multi-page — merging on the client
-  or PDF from the device, whichever the firmware returns; decision per spike §13).
-- ADF: all sheets from the feeder with one button → one PDF.
+- Output format: JPEG (per page, `scan-…-pN.jpg`) / PDF (multi-page — the
+  firmware assembles the whole ADF stack into one document, §13.3).
+- ADF: all sheets from the feeder with one button → one PDF (JPEG — one file
+  per sheet).
 - Save location: default folder (setting), file name = `scan-YYYYMMDD-HHMMSS`.
 - Progress: indication of job phases (created → scanning → N pages received → done).
 - Result preview and an "Open folder" action after completion.
@@ -169,8 +170,12 @@ prindeck (Tauri 2)
 │  │  ├─ mod.rs        AppState, scan events (scan-progress/scan-done/scan-error)
 │  │  ├─ caps.rs       get_capabilities + capabilities cache
 │  │  ├─ scan.rs       start_scan / cancel_scan, job-id validation
+│  │  ├─ scan_errors.rs classified scan failures → user-worded messages
 │  │  ├─ scan_files.rs scan file naming, magic-byte checks
-│  │  ├─ scan_jobs.rs  scan-job runner (POST job, NextDocument loop, cancel)
+│  │  ├─ scan_jobs.rs  scan-job runner (POST job, fetch loop, cancel, partial keep)
+│  │  ├─ scan_pages.rs per-page fetch loop, PagesOutcome (PDF = one whole-stack
+│  │  │                document, JPEG = one document per page)
+│  │  ├─ print.rs      print_file / get_queue / cancel_print IPC
 │  │  └─ status.rs     get_status / refresh_status / open_printer_panel
 │  ├─ escl.rs          reqwest + quick-xml: capabilities, status, scan-job lifecycle
 │  ├─ snmp/            snmp2: one batched GET of the Brother OIDs (§7.2)
@@ -179,16 +184,18 @@ prindeck (Tauri 2)
 │  │  └─ client.rs     SyncSession get_many — 3 varbinds in one PDU
 │  ├─ status/          SNMP → DeviceStatus; cache + polling (tokio interval)
 │  │  ├─ mod.rs        DeviceStatus, StatusCache (cached first paint), `status` event
-│  │  └─ poll.rs       interval from config pollSeconds (default 300 s), one retry
+│  │  └─ poll.rs       interval from config pollSeconds (default 300 s), one retry,
+│  │  │                silent history::try_record after a successful poll
 │  ├─ tray.rs          tray icon + menu ("Show window" / "Quit")
-│  ├─ print.rs         (M3) std::process: lp / lpstat / cancel + output parsing
-│  ├─ history.rs       (M4) rusqlite (bundled): snapshots (timestamp, toner, drum, pages)
-│  └─ config/          config.json (device.host, scanDir, snmp.community, pollSeconds)
+│  ├─ print/           CUPS subprocesses: lp / lpstat / cancel (LC_ALL=C) + parsing
+│  ├─ history/         rusqlite (bundled): snapshots (ts, toner, drum, pages)
+│  └─ config/          config.json (device.host, scanDir, cupsQueue, snmp.community, pollSeconds)
 │     ├─ mod.rs        Config, defaults, validation
+│     ├─ store.rs      load/save of config.json
 │     ├─ error.rs      ConfigError
 │     └─ host.rs       host/address validation
 └─ ui/                 Vite + TypeScript strict
-   ├─ index.html       SPA shell: sidebar + two destinations (Скан, Обзор)
+   ├─ index.html       SPA shell: sidebar + three destinations (Скан, Обзор, Печать)
    └─ src/             no framework — vanilla DOM modules (§13.7)
       ├─ main.ts       init, wiring, event listeners
       ├─ api.ts        invoke() wrappers
@@ -199,8 +206,9 @@ prindeck (Tauri 2)
       ├─ caps.ts       capabilities fetch/apply
       ├─ labels.ts     Russian UI strings
       ├─ types.ts      IPC/domain types
-      ├─ screens/      scan.ts (Скан), overview.ts (Обзор)
-      └─ styles/       base, shell, content, scan, overview
+      ├─ screens/      scan.ts + scan_result.ts (Скан), overview.ts (Обзор),
+      │                print*.ts (Печать: form, file picker/drop, queue)
+      └─ styles/       base, shell, content, scan, scan_result, overview, print
 ```
 
 Data flows: UI → `invoke()` → Rust commands; background processes (status polling,
@@ -214,7 +222,7 @@ poll. Data flows in one direction — "network → DTO mapping → domain → IP
 
 ## 7. Protocols
 
-### 7.1 Scanning — eSCL (M0 facts, 26.10.2026)
+### 7.1 Scanning — eSCL (M0 facts 26.10.2026; ADF — M2.5 spike 27.10.2026)
 
 RESTful HTTP+XML (originated at HP, published by Mopria; reference — `sane-airscan`).
 Base path: `http://192.168.187.36/eSCL/`. Everything below was taken from the live device;
@@ -226,7 +234,9 @@ Observed flow:
    resolutions **100/200/300/600** (150 is absent — 300 is returned silently), ColorMode
    **`BlackAndWhite1` / `Grayscale8` / `RGB24`**, formats **`application/pdf`
    and `image/jpeg`** (the PDF is assembled by the firmware), Platen regions `2550×3507` (A4) and
-   ADF `2550×4200` (Legal), units 1/300″; ADF — simplex only (20 sheets).
+   ADF `2550×4200` (Legal), units 1/300″; ADF — simplex only (20 sheets). On A4 stacks
+   request `Height 3507`, not the advertised 4200: with the full Legal strip the PDF's
+   non-final pages carry ~6 cm blank tails (`docs/escl-l2710dw.md` §11.4).
 2. `POST /eSCL/ScanJobs` (body `ScanSettings` — **on one line**) → `201` +
    `Location: http://…/eSCL/ScanJobs/<uuid-v1>`.
 3. There is no separate `GET {job}/ScannerJobStatus` (404). The job state
@@ -236,7 +246,12 @@ Observed flow:
 4. `GET {job}/NextDocument` — blocking (A4 @300 dpi ≈ 7.8–8.6 s), returns
    JPEG/PDF; end of document — `404` with an empty body; document name — in
    `Content-Location: …/doc-N` (there is no `DocumentUri` element). Without reading it out
-   ≈ 61 s → `Canceled/JobTimedOut`.
+   ≈ 61 s → `Canceled/JobTimedOut`. On the ADF the delivery is split by format
+   (M2.5 spike, `docs/escl-l2710dw.md` §11): **PDF = the whole stack in ONE
+   response** (the firmware assembles the multi-page document; the next request
+   gets the terminal `404`), **JPEG = one document per page** (3 sheets → three
+   `200`s, then `404`). The whole-stack PDF response blocks ≈ 8 s × sheets —
+   the fetch timeout scales with the feeder capacity (≥ 180 s at 20 sheets).
 5. `DELETE {job}` — `200` on an active job, `404` after completion. `DELETE`
    during a blocking `NextDocument` → `200`, and the hanging fetch is aborted with
    **`410 Gone`** (0 B) — a normal cancel, not an error (checked 27.10.2026;
@@ -250,6 +265,17 @@ Mandatory caveats (verified by A/B tests):
   `scan:Adf/scan:AdfSimplexInputCaps`.
 - `ScanRegions` is mandatory; `BlackAndWhite1` + `image/jpeg` → `409`;
   an empty Feeder → `500`; busy → `503`.
+- ADF fetches need **no pause** on this unit: back-to-back requests (measured
+  1 ms gaps) cross sheet transitions cleanly; the sane-airscan "≥ 1 s between
+  `NextDocument`" Brother quirk does not manifest (`docs/escl-l2710dw.md` §11.2).
+- `scan:AdfState` correlates with `POST` in both directions:
+  `ScannerAdfLoaded` ⇔ `201`, `ScannerAdfEmpty` ⇔ `500` (§11).
+- The terminal `404` finalises the job: after the last document the job stays
+  `Processing`/`JobScanning` and flips to `Completed` only after the `404` —
+  the terminating request is always required (§11.6).
+- Cancel mid-stack on the ADF is **not yet observed live** (the spike ran out
+  of paper); the platen cancel matrix (`docs/escl-l2710dw.md` §10.1) remains
+  the reference — the M2.5 live acceptance (§14) covers it.
 
 Working `ScanSettings` (fixture: `fixtures/escl/scansettings-platen-300-gray-pdf.xml`):
 
@@ -259,7 +285,8 @@ Working `ScanSettings` (fixture: `fixtures/escl/scansettings-platen-300-gray-pdf
 
 Results: JPEG 2512×3460 @300 dpi (Grayscale8 — 1 component, RGB24 — 3);
 PDF — 1 page 602.64×830.16 pt; `BlackAndWhite1` — true 1-bit CCITT.
-Multi-page ADF PDF not verified (no paper) — open question §13.3.
+Multi-page ADF verified at M2.5: 2 sheets → one 2-page PDF from a single
+`NextDocument` (§13.3); JPEG stacks arrive per page.
 
 ### 7.2 Status/toner — SNMP (snmp2)
 
@@ -300,9 +327,14 @@ fields, unknown ids — skip with a log (PRD §5.6). Independent verification wi
 
 ### 7.3 Printing — via CUPS
 
-- Sending: `lp -d Brother_MFC_L2710DW_series -n <copies> -o duplex=<mode> <file>`.
-- Queue: `lpstat -W not-completed -o`, cancel: `cancel <job-id>`.
-- We take duplex/quality options from the queue's PPD (`lpoptions -p … -l`).
+- Sending: `lp -d Brother_MFC_L2710DW_series -n <copies> -o sides=<mode> <file>`
+  (`one-sided` / `two-sided-long-edge` / `two-sided-short-edge`).
+- Queue: `lpstat -W not-completed -o`, cancel: `cancel <job-id>` (only ids of
+  the configured queue — a bare `cancel all` must never be reachable).
+- All CUPS subprocesses run with `LC_ALL=C` and a timeout: on a ru_RU machine
+  `lpstat` otherwise localizes its output and breaks parsing.
+- Quality/resolution/toner-saving options from the queue's PPD
+  (`lpoptions -p … -l`) — deferred (§12).
 - Direct IPP client — not doing it in v1: CUPS already handles discovery, retries, PPD;
   return to it only if a need outside CUPS appears.
 
@@ -324,9 +356,11 @@ Destinations (SPA, section switching, no deep links):
    format, folder), a large "Scan" button, progress phase, result, "Open folder".
 2. **Обзор** — device overview: connection card with manual refresh, toner/drum
    bars with %, page counter and duplex pages over SNMP, eSCL availability.
+3. **Печать** — print (M2.5): dropzone/file picker, copies stepper and duplex
+   select, the active CUPS queue with a per-row cancel.
 
-Planned destinations: **Печать** (M3 — dropzone/parameters/active jobs) and
-**Настройки** (IP/eSCL path, polling intervals, scan folder, thresholds).
+Planned destinations: **Настройки** (IP/eSCL path, polling intervals, scan
+folder, thresholds).
 
 Layout behaviour: below a 820 px viewport width the sidebar collapses into a
 64 px icon rail (labels hidden, only icons); the scan panel reflows by container
@@ -355,25 +389,29 @@ Commands (`#[tauri::command]`):
 | `cancel_scan` | `jobId` | `ok` | DELETE job on the device |
 | `open_scan_folder` | — | `ok` | open the scan folder (`scanDir`) via opener |
 | `get_startup_error` | — | `Option<String>` | startup/config resolution error, if any |
-| `print_file` | `path, PrintOptions` | `cupsJobId` | sending via `lp` (M3) |
-| `get_queue` | — | `[CupsJob]` | `lpstat -W not-completed` (M3) |
-| `cancel_print` | `cupsJobId` | `ok` | `cancel` (M3) |
-| `get_history` | `days` | `[Snapshot]` | from SQLite (M4) |
+| `print_file` | `path, copies, sides` | `cupsJobId` | sending via `lp` (M2.5; sides = the CUPS option string) |
+| `get_queue` | — | `[CupsJob]` | `lpstat -W not-completed` for the configured queue (M2.5) |
+| `cancel_print` | `cupsJobId` | `ok` | `cancel`, guarded to the configured queue (M2.5) |
+| `get_history` | `days` | `[Snapshot]` | from SQLite (M4; the recording itself is internal since M2.5 — no IPC yet) |
 | `open_printer_panel` | — | `ok` | web panel via opener |
 
-Shipped in M2: `get_status`, `refresh_status`, `open_printer_panel`; the
-`status`, `scan-progress`, `scan-done`, `scan-error` events. M1 commands
-(`get_capabilities`, `start_scan`, `cancel_scan`, `get_startup_error`,
-`open_scan_folder`) remain. The rest — planned with their milestones.
+Shipped in M2.5: `print_file`, `get_queue`, `cancel_print`; `scan-progress`
+gained `pages` and `scan-done` now carries `{jobId, files, partial, warning}`.
+M2 shipped `get_status`, `refresh_status`, `open_printer_panel` and the
+`status`, `scan-progress`, `scan-done`, `scan-error` events; M1 —
+`get_capabilities`, `start_scan`, `cancel_scan`, `get_startup_error`,
+`open_scan_folder`. History is recorded silently inside the status poller
+(SQLite at `~/.local/share/prindeck/history.db`) — there is no history IPC
+yet; `get_history` is M4.
 
 Events (`emit` → `listen` in the UI):
 
 | Event | Payload | Source |
 |---|---|---|
 | `status` | `DeviceStatus` | status poller (`status/poll.rs`, SNMP), emitted after every poll attempt |
-| `scan-progress` | `{jobId, phase, pages}` | client stages `created → scanning → done` (M1); polling `ScannerStatus` is not needed — `Completed` lags (§7.1) |
-| `scan-done` | `{jobId, file}` | escl scan task (M1: Platen → one file) |
-| `scan-error` | `{jobId, message}` | scan task failure (user-worded, no raw errors) |
+| `scan-progress` | `{jobId, phase, pages}` | client stages `created → scanning → done`; `pages` counts received documents (ADF, M2.5); polling `ScannerStatus` is not needed — `Completed` lags (§7.1) |
+| `scan-done` | `{jobId, files, partial, warning}` | escl scan task; `partial: true` (+ `warning` on failure) when a canceled/failed job kept its received pages (M2.5); a cancel with zero pages terminates as `scan-progress {phase: "canceled"}` without `scan-error` |
+| `scan-error` | `{jobId, kind, message}` | scan task failure (user-worded, no raw errors; classified `kind` since M2) |
 | `alert` | `{kind, message}` | F4 thresholds (M4) |
 
 ## 10. Stack — APPROVED: Tauri 2
@@ -386,7 +424,8 @@ rejected; the record of the comparison is preserved in the PRD's git history).
 - `tauri` 2.12.x + official plugins: `notification`, `autostart`,
   `single-instance`, `opener`, `dialog`; tray — from the core (feature `tray-icon`,
   on Linux the menu is mandatory, tray events are not emitted).
-  In M1 only `opener` and `single-instance` are wired up — the rest in M3/M4.
+  Wired up: `opener` and `single-instance` (M1), `dialog` (M2.5 — the Print
+  screen file picker); `notification` and `autostart` — M4.
 - Rust crates (fixed list):
   - `reqwest` 0.13 — eSCL HTTP client (no TLS: the device is over HTTP);
   - `quick-xml` + `serde` — parsing capabilities/status/ScanSettings;
@@ -397,6 +436,12 @@ rejected; the record of the comparison is preserved in the PRD's git history).
   - `chrono` — timestamps/file names.
 - Frontend: TypeScript strict, vanilla DOM; no framework introduced (see §13 question 7).
 - Build: tauri bundler → `.deb`/`.rpm`/AppImage; CI (GitHub Actions) — v1.x.
+
+M2.5 phase note: `lopdf` was added and removed within the same phase. The
+plan assumed per-page PDF delivery (client-side merge); the live spike proved
+the firmware assembles the whole stack into one document (§13.3), so the merge
+module and the crate were dropped before any release — `lopdf` is not part of
+the standing list.
 
 Crate policy: a new crate — only with a justification in the commit description.
 
@@ -423,8 +468,9 @@ Crate policy: a new crate — only with a justification in the commit descriptio
 | M0 Spike ✅ 26.10.2026 | eSCL end-to-end (curl): JPEG and PDF scan, errors; SNMP OIDs + verification against the web, independent `snmpwalk` check; discrepancies with the PRD found | `docs/escl-l2710dw.md`, `docs/oids-l2710dw.md`, fixtures in `fixtures/` |
 | M1 Skeleton ✅ 27.10.2026 | Tauri 2 scaffold (window+tray+plugins), `config.rs`, `escl.rs`, "Scan" screen | scan → PDF into the folder from the app window (600 dpi variant deferred to a future device session) |
 | M2 Shell and overview ✅ 27.10.2026 | navigation shell (sidebar + icon rail), `snmp/` (batched GET, blob parsing), `status/` (cache, 5-min polling, `status` event), «Обзор» screen; the print screen stays in M3 | toner/status matches the web panel (live check 27.10.2026, `docs/oids-l2710dw.md` §6) |
-| M3 Printing | `print.rs` (lp/lpstat/cancel), F3 screen | printing with duplex options from the UI |
-| M4 Monitoring | `history.rs`, notifications, chart, tray menu | notification when toner < 15 % |
+| M2.5 History, print, ADF ✅ 27.10.2026 | silent SQLite history on every successful poll (`history/`, `~/.local/share/prindeck/history.db`); `print/` + the «Печать» screen (queue-first: copies 1–99, duplex, active CUPS queue with cancel, `LC_ALL=C`); ADF multi-sheet per the spike verdict — one whole-stack PDF / per-page JPEG (`-pN`), partial keep on cancel, truncated-document guard (`%%EOF`/`FF D9`), stack-scaled fetch timeout, A4 region 3507 | the live acceptance checklist (§14): 3-sheet PDF → one file (`Pages: 3`) ✅, 3-sheet JPEG → three `-pN.jpg` ✅, JPEG cancel mid-stack → partial keep ✅, PDF cancel in-flight → «отменено», no file ✅ (log 27.10.2026 20:18), history DB accumulates and survives a restart ✅; remaining §14 items: power-cycle probe, formal visual check, duplex print confirmation |
+| M3 Printing — delivered in M2.5 | moved into M2.5 (`print/`, «Печать» screen, duplex via `sides=`); the leftover F3 extras — quality/resolution/toner saving from the queue's PPD — are cut from v1 and deferred to v2 | a duplex print from the UI flips like a book (pending live check, §14) |
+| M4 Monitoring | `get_history` IPC + history chart, notifications, tray menu (the recording itself shipped in M2.5) | notification when toner < 15 % |
 | M5 Release | icon, bundler (deb/rpm/AppImage), README+license, GitHub | repository published, install from the artifact |
 | v2 | mDNS discovery, OCR add-on, «Scan to PC» from the device body, other distributions | — |
 
@@ -440,12 +486,16 @@ the press by polling eSCL `ScannerStatus` — spike first (§13.11).
    `BlackAndWhite1`/`Grayscale8`/`RGB24`; no 150 dpi; PDF from the firmware available).
 2. ~~Toner % via Printer-MIB~~ — **resolved at M0**: the MIB returns `-3`/`-2`;
    the percentage — only from the blob (`#81`), verified against the web (40 %).
-3. **ADF multi-page** — remains: PDF from the device works (1 page), but
-   multi-page ADF is not verified (no paper); sane-airscan has a quirk
-   "≥ 1 s between `NextDocument`" — verify at M1 with paper.
+3. ~~ADF multi-page~~ — **resolved at M2.5 (27.10.2026, spike
+   `docs/escl-l2710dw.md` §11)**: delivery is split by format — the firmware
+   assembles the whole stack into ONE multi-page PDF (2 sheets → one 2-page
+   document); JPEG arrives one document per page. The sane-airscan
+   "≥ 1 s between `NextDocument`" quirk does not manifest on this unit —
+   back-to-back fetches are clean.
 4. ~~Stack: A vs B~~ — **resolved 26.10.2026: B (Tauri 2)**.
-5. ~~PDF merging on the client~~ — **the firmware does PDF itself**; merging is needed
-   only for multi-page ADF (see №3).
+5. ~~PDF merging on the client~~ — **not needed at all**: the firmware merges
+   whole stacks (№3). The M2.5 `lopdf` merge module was added per the original
+   plan and removed once the spike proved this (§10) — no merge crate remains.
 6. License for GitHub: **MIT or Apache-2.0** — decide by M5 (dual is possible).
 7. ~~Vanilla DOM vs Preact for the UI~~ — **resolved at M2 (27.10.2026)**: vanilla
    TypeScript modules chosen (two screens ≈ 700 lines of DOM code). Revisit
@@ -473,15 +523,31 @@ the press by polling eSCL `ScannerStatus` — spike first (§13.11).
     appear in eSCL `ScannerStatus`/`ScanJobs`, or is the button software-bound
     (Windows-only) on this model? If the latter, §12 «Scan to PC» is dropped
     or re-scoped.
+12. **ADF cancel mid-stack** — both paths observed live 27.10.2026: between
+    pages (JPEG: remaining sheets stay in the feeder, received pages kept) and
+    in-flight (PDF: the device closes the chunked stream cleanly — the
+    truncated-document guard rejects the partial body, «отменено», no file).
+    Known residual: a cancel landing between pages is reported by the client
+    as a normal completion (the terminal `404` of a canceled job is
+    indistinguishable from the end of the stack) — the file content is
+    correct, only the «неполный» label is lost; revisit if it bothers.
 
 ## 14. Acceptance
 
 - `cargo test` — offline unit tests: XML parsing on fixtures taken from the device
-  (capabilities/status), Supply/Counters mappings, parsing of lpstat output;
-  `tsc --noEmit` for the UI.
+  (capabilities/status), Supply/Counters mappings, parsing of `lpstat` output on the
+  captured fixture, the ADF fetch-loop terminal table and file naming (`-pN`,
+  `-partial`), history round-trip; `tsc --noEmit` for the UI. All green at M2.5.
 - Live checklist `LIVE=1` (manually against the real device): GET capabilities/
   status, POST scan-job at 300 dpi Platen (150 dpi is not supported), `lp` test
   page, tray menu, notification at low toner.
+- M2.5 live acceptance (**pending**): 3-sheet ADF PDF → one file, `pdfinfo`
+  reports `Pages: 3` and page size ≈ 602.64 × 830.16 pt (the M0 reference),
+  opens in GNOME Papers and Firefox;
+  3-sheet JPEG → three `-pN.jpg` with previews; cancel on sheet 2 →
+  `…-partial.pdf`, device `Idle`, no temp files; the history DB accumulates rows
+  over one poll interval and survives an app restart; a duplex print from the UI
+  flips like a book.
 - Acceptance v1: from the app window in ≤ 3 clicks get a PDF from a scan; toner in the UI
   matches the web panel ±1 %; after the printer is disconnected the UI stays alive
   (offline badge), after it is switched on — recovers by itself; closed window → tray,

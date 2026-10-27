@@ -50,6 +50,7 @@ export interface ScanCaps {
   makeAndModel: string;
   platen: InputCaps;
   adf: InputCaps | null;
+  feederCapacity: number | null;
 }
 
 export type ScanPhase = "created" | "scanning" | "done" | "canceled";

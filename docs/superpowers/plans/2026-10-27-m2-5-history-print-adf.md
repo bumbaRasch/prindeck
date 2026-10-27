@@ -103,23 +103,23 @@ pub fn try_record(handle: &HistoryHandle, snap: &Snapshot);       // swallows Er
 
 - Consumes: `DeviceStatus` from `status/mod.rs` (fields already exist from M2).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `history/tests.rs`: `round_trip` — `History::open` on a temp path under `std::env::temp_dir()`, `record` a `Snapshot` with all fields, re-open, assert the row reads back field-for-field; `gaps_stay_gaps` — two records with distant timestamps, row count is 2; `try_record_swallows_errors` — a `HistoryHandle(Mutex::new(None))` (open failed) plus a `try_record` call returns `()` without panicking.
 
-- [ ] **Step 2: Run to see them fail**
+- [x] **Step 2: Run to see them fail**
 
 Run: `cargo test --workspace history` — expected: compile error, module missing.
 
-- [ ] **Step 3: Implement `history.rs` and the poll hook**
+- [x] **Step 3: Implement `history.rs` and the poll hook**
 
 Schema v1: `snapshots(ts TEXT PRIMARY KEY, toner_pct INTEGER NULL, drum_pct INTEGER NULL, pages_total INTEGER NULL, duplex_pages INTEGER NULL, drum_pages_left INTEGER NULL)`, `PRAGMA user_version = 1` guard. `History::open` is called once in `lib.rs` setup with `dirs::data_dir()/prindeck/history.db` (created via `create_dir_all`); the handle is stored in Tauri managed state as `HistoryHandle(Mutex<Option<History>>)` — `None` on open failure after an `error!` log, polling runs unchanged. In `status/poll.rs`, after a successful poll: `try_record(&handle, &Snapshot::from_status(&status))` — an insert failure logs `warn!` and the poll result is returned unchanged.
 
-- [ ] **Step 4: Run the tests and the gate**
+- [x] **Step 4: Run the tests and the gate**
 
 Run: `cargo test --workspace` — all green including the new ones; `cargo clippy --workspace --all-targets -- -D warnings` — clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/history.rs src-tauri/src/history src-tauri/src/status/poll.rs src-tauri/src/lib.rs src-tauri/Cargo.toml Cargo.lock
@@ -151,27 +151,27 @@ pub fn cancel(job_id: &str) -> Result<(), PrintError>;
 
 - Consumes: nothing from other tasks; `std::process::Command` with env `LC_ALL=C` in `spawn_blocking` with a `try_wait` loop for the 5 s timeout — the same pattern as `snmp/client.rs`.
 
-- [ ] **Step 1: Capture the real fixture**
+- [x] **Step 1: Capture the real fixture**
 
 Run `LC_ALL=C lpstat -W not-completed -o Brother_MFC_L2710DW_series` on this machine. If the queue is empty, create a **held** job first — `lp -o job-hold-until=indefinite -d Brother_MFC_L2710DW_series /etc/hostname` (verified: identical `lpstat` row, zero device contact) — then `cancel` it after capture. Save the exact bytes to `fixtures/print/lpstat-not-completed.txt`.
 
-- [ ] **Step 2: Write the failing parsing tests**
+- [x] **Step 2: Write the failing parsing tests**
 
 `parses_fixture_rows` (id `Brother_MFC_L2710DW_series-N`, owner, size from the captured file); `non_matching_queue_is_dropped` (a line of a foreign queue never yields a `CupsJob`); `sides_option_strings` (`one-sided`, `two-sided-long-edge`, `two-sided-short-edge` — verbatim from the CUPS docs); `empty_output_yields_empty_vec`; `garbage_line_is_skipped_not_fatal`.
 
-- [ ] **Step 3: Run to see them fail**
+- [x] **Step 3: Run to see them fail**
 
 Run: `cargo test --workspace print` — expected: compile error.
 
-- [ ] **Step 4: Implement `print/mod.rs` + `print/lp.rs`**
+- [x] **Step 4: Implement `print/mod.rs` + `print/lp.rs`**
 
 `queue_jobs` runs `lpstat -W not-completed -o <queue>` (`-W` before `-o`), splits lines, keeps only rows whose id starts with `<queue>-`; the fields after the id token are `owner` and `size` (the date tail is ignored). `print_file` runs `lp -d <queue> -n <copies> -o sides=<..> <path>` and returns the job id token from the output line (`request id is <queue>-N ...`). `cancel` runs `cancel <job_id>` — never bare. All three set `LC_ALL=C`.
 
-- [ ] **Step 5: Add `cups_queue` to the config**
+- [x] **Step 5: Add `cups_queue` to the config**
 
 `Config` gains `cups_queue: String` with `#[serde(default = "default_cups_queue")]` returning `Brother_MFC_L2710DW_series`; test: JSON without the key parses to the default; empty string → `ConfigError::InvalidCupsQueue` alongside the existing host validation.
 
-- [ ] **Step 6: Run tests and gate; commit**
+- [x] **Step 6: Run tests and gate; commit**
 
 Run: `cargo test --workspace` and clippy — green/clean; `wc -l src-tauri/src/print/*.rs` under 200.
 
@@ -192,15 +192,15 @@ git commit -m "M2.5: CUPS print domain — lp/lpstat/cancel under LC_ALL=C"
 - Produces: IPC `print_file(path: String, copies: u32, sides: String) -> Result<String, String>`, `get_queue() -> Result<Vec<CupsJob>, String>`, `cancel_print(jobId: String) -> Result<(), String>`; UI `initPrintScreen(getState)`, `renderPrintScreen(state)`, `Screen` gains `"print"`; `api.printFile/getQueue/cancelPrint` (no queue event listener — the 5 s interval lives inside `screens/print.ts`).
 - Consumes: `print::{print_file, queue_jobs, cancel}` (Task 2), shell/router patterns (M2), `config.cups_queue`.
 
-- [ ] **Step 1: Rust IPC bodies**
+- [x] **Step 1: Rust IPC bodies**
 
 `commands/print.rs` maps `Sides` from the string — the IPC vocabulary is the CUPS option strings themselves, `"one-sided" | "two-sided-long-edge" | "two-sided-short-edge"` (no second enum vocabulary to translate); unknown → `Err`. Validates `copies` 1–99, maps `PrintError` to English log + Russian `*_LABEL` message (incl. «очередь CUPS не найдена» for the soft queue-missing case). Unit tests: sides mapping, copies bounds.
 
-- [ ] **Step 2: UI — nav, screen, labels**
+- [x] **Step 2: UI — nav, screen, labels**
 
 Third nav entry «Печать» (icon: Lucide `printer` in the sprite); screen: dropzone + «Выбрать файл…» (dialog plugin), copies stepper, duplex select («односторонняя / по длинному краю / по короткому краю»), primary «Печать», queue table (id, владелец, размер, «Отменить»; every row renders «в ожидании» — there is no state token in `lpstat -o` output), explicit «Очередь пуста» state.
 
-- [ ] **Step 3: Queue refresh only while visible**
+- [x] **Step 3: Queue refresh only while visible**
 
 `setInterval` 5 s started when the screen becomes current, cleared on leave (router hook); manual refresh after `printFile`/`cancelPrint` resolves. Drag-drop file paths from the core `onDragDropEvent` (paths, not web `File`).
 
@@ -210,7 +210,7 @@ Third nav entry «Печать» (icon: Lucide `printer` in the sprite); screen:
 
 Gate + `npm run check:line-count`; app at 900×680 and 640×480, both themes — the M2 visual-check subagent pattern. **Then, with the user's go** (occupies the printer): send one real print with `two-sided-long-edge` (user checks the paper flips like a book), then queue a 3-copy job and cancel it from the UI, `lpstat` confirms removal.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/commands ui src-tauri/Cargo.toml src-tauri/capabilities package.json package-lock.json
@@ -230,23 +230,23 @@ git commit -m "M2.5: queue-first Print screen with copies and duplex"
 **Interfaces:**
 - Produces for Tasks 5–7: `fixtures/escl/adf/page-N.pdf|.jpg` (per-page documents from a 2-sheet stack), and a verdict block in `docs/escl-l2710dw.md` §11: outcome **A** (per-page) or **B** (one multi-page PDF), the pause-rule verdict (is the ≥1 s gap required on this unit), cancel-mid-stack behavior, power-cycle and wake timings.
 
-- [ ] **Step 1: 2 sheets, PDF — the A/B question**
+- [x] **Step 1: 2 sheets, PDF — the A/B question**
 
 `POST` + repeated `NextDocument` (with a 1 s pause): one response per sheet or one multi-page PDF? Save each response body to `fixtures/escl/adf/`; `pdfinfo` each file (pages, size). Record per-page timings. Scrub device identifiers (serial/UUID) from anything committed — the M0 publication-hygiene rule (`docs/escl-l2710dw.md`, end of §REPORT).
 
-- [ ] **Step 2: 2 sheets, JPEG** — confirm per-page JPEGs and `Content-Location: doc-N`; save fixtures.
+- [x] **Step 2: 2 sheets, JPEG** — confirm per-page JPEGs and `Content-Location: doc-N`; save fixtures.
 
-- [ ] **Step 2b: 1 sheet, PDF** — the single-sheet edge: does the loop still need the terminating `NextDocument` → `404`?
+- [x] **Step 2b: 1 sheet, PDF** — the single-sheet edge: does the loop still need the terminating `NextDocument` → `404`?
 
-- [ ] **Step 3: No pause** — repeat Step 1 back-to-back without the gap; does `404`/`ScannerAdfEmpty` appear? Verdict for the pause rule.
+- [x] **Step 3: No pause** — repeat Step 1 back-to-back without the gap; does `404`/`ScannerAdfEmpty` appear? Verdict for the pause rule.
 
 - [ ] **Step 4: Cancel on sheet 2 of 3** — `DELETE` mid-fetch: `200`, hanging fetch `410`, `ScannerStatus` → `Idle`; what does the feeder do with sheet 3; is a partial body possible.
 
 - [ ] **Step 5: Power-cycle probe** — with the app open and polling: power off → chip «Нет связи» within one poll; power on → recovers to «в сети» unattended; record boot-to-first-response latency and first-request latency after deep idle.
 
-- [ ] **Step 6: Write the verdict into `docs/escl-l2710dw.md` §11** — A/B, pause rule, cancel, timings; fixtures listed.
+- [x] **Step 6: Write the verdict into `docs/escl-l2710dw.md` §11** — A/B, pause rule, cancel, timings; fixtures listed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add fixtures/escl/adf docs/escl-l2710dw.md
@@ -288,13 +288,13 @@ Terminal-event table (complete, both outcomes — `pages` is received PDF/JPEG p
 
 - Consumes: `EsclClient::next_document` (200/404/410 semantics, M1). The pause rule is NOT gated on Task 4: implement `next_delay` per the design (min(1 s, prev/2), the sane-airscan Brother quirk) — if the spike's §11 later proves the pause unnecessary on this unit, removing it is a one-function change.
 
-- [ ] **Step 1: Failing tests** — `next_delay_clamps` (8 s prev → 1 s; 1.2 s prev → 600 ms); `terminal_event_failed_with_pages_is_done_partial`; `terminal_event_failed_empty_is_error`; `terminal_event_canceled_with_pages_is_done_partial`; `terminal_event_canceled_empty_is_progress_canceled_only`; `canceled_keeps_pages`; naming tests: JPEG stack → `-p1..-pN`, canceled PDF → `-partial.pdf`, collision suffix `-2`.
+- [x] **Step 1: Failing tests** — `next_delay_clamps` (8 s prev → 1 s; 1.2 s prev → 600 ms); `terminal_event_failed_with_pages_is_done_partial`; `terminal_event_failed_empty_is_error`; `terminal_event_canceled_with_pages_is_done_partial`; `terminal_event_canceled_empty_is_progress_canceled_only`; `canceled_keeps_pages`; naming tests: JPEG stack → `-p1..-pN`, canceled PDF → `-partial.pdf`, collision suffix `-2`.
 
-- [ ] **Step 2: Run to fail** — `cargo test --workspace commands` compile error.
+- [x] **Step 2: Run to fail** — `cargo test --workspace commands` compile error.
 
-- [ ] **Step 3: Implement** — the loop collects pages until `404`/`410`/error, applies `next_delay` between requests, on `Canceled`/`Failed` issues the best-effort `DELETE` on a separate connection and removes temp files for unreceived pages; files are written per the naming tests; `pages` counter emitted on every received page.
+- [x] **Step 3: Implement** — the loop collects pages until `404`/`410`/error, applies `next_delay` between requests, on `Canceled`/`Failed` issues the best-effort `DELETE` on a separate connection and removes temp files for unreceived pages; files are written per the naming tests; `pages` counter emitted on every received page.
 
-- [ ] **Step 4: Tests + gate green; commit**
+- [x] **Step 4: Tests + gate green; commit**
 
 ```bash
 git add src-tauri/src/commands
@@ -313,13 +313,13 @@ git commit -m "M2.5: per-page ADF fetch loop with partial-keep terminals"
 
 **Interfaces:** unchanged — `PagesOutcome`, the terminal-event table, `scan-progress {pages}`, `scan-done {files, partial, warning}` all stand as landed in Task 5.
 
-- [ ] **Step 1: Failing/adjusted tests first** — (a) delete `next_delay_clamps` and any pause-related test; the loop tests must show consecutive fetches with no sleep; (b) replace the transitional `multi_page_pdf_names_pages_until_merge` with a pin of outcome B: a PDF job yields exactly ONE document (the whole stack) saved as `scan-YYYYMMDD-HHMMSS.pdf` (no `-pN` for PDF ever); JPEG naming tests keep `-p1..-pN.jpg` against the real `fixtures/escl/adf/adf-page-*.jpg`; (c) Feeder region: a Feeder A4 job requests `Height 3507`, not the 4200 capability (§11.4: with 4200 on A4 paper, non-final PDF pages carry ~6 cm blank tails); (d) Feeder fetch timeout scales with the stack: budget `8 s × FeederCapacity + margin ≥ 180 s` for the whole-stack PDF response (§11.9; the flat 120 s would kill ≥ 15-sheet stacks).
+- [x] **Step 1: Failing/adjusted tests first** — (a) delete `next_delay_clamps` and any pause-related test; the loop tests must show consecutive fetches with no sleep; (b) replace the transitional `multi_page_pdf_names_pages_until_merge` with a pin of outcome B: a PDF job yields exactly ONE document (the whole stack) saved as `scan-YYYYMMDD-HHMMSS.pdf` (no `-pN` for PDF ever); JPEG naming tests keep `-p1..-pN.jpg` against the real `fixtures/escl/adf/adf-page-*.jpg`; (c) Feeder region: a Feeder A4 job requests `Height 3507`, not the 4200 capability (§11.4: with 4200 on A4 paper, non-final PDF pages carry ~6 cm blank tails); (d) Feeder fetch timeout scales with the stack: budget `8 s × FeederCapacity + margin ≥ 180 s` for the whole-stack PDF response (§11.9; the flat 120 s would kill ≥ 15-sheet stacks).
 
-- [ ] **Step 2: Implement the adjustments** — remove `pdf_merge` + `lopdf` + the mod line; remove the pause from the fetch loop; Feeder region = A4 height from the platen caps (the 4200 capability stays documented for a future Legal option); Feeder `NextDocument` per-request timeout per the formula above (Platen keeps 120 s). `.gitignore`: add the exception that tracks `fixtures/escl/adf/*` (the four spike fixtures were force-added past the `*.jpg` rule — make them normally tracked).
+- [x] **Step 2: Implement the adjustments** — remove `pdf_merge` + `lopdf` + the mod line; remove the pause from the fetch loop; Feeder region = A4 height from the platen caps (the 4200 capability stays documented for a future Legal option); Feeder `NextDocument` per-request timeout per the formula above (Platen keeps 120 s). `.gitignore`: add the exception that tracks `fixtures/escl/adf/*` (the four spike fixtures were force-added past the `*.jpg` rule — make them normally tracked).
 
-- [ ] **Step 3: Full gate green** — `cargo test --workspace`, `cargo check --workspace --all-targets`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check`, `npm run typecheck`, `npm run build`, `npm run check:code-language`, `npm run check:line-count`; `git status` shows the jpg fixtures tracked WITHOUT force-flags needed (test: `git rm --cached` one and `git add` it back cleanly).
+- [x] **Step 3: Full gate green** — `cargo test --workspace`, `cargo check --workspace --all-targets`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check`, `npm run typecheck`, `npm run build`, `npm run check:code-language`, `npm run check:line-count`; `git status` shows the jpg fixtures tracked WITHOUT force-flags needed (test: `git rm --cached` one and `git add` it back cleanly).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A src-tauri fixtures .gitignore Cargo.lock
@@ -337,15 +337,15 @@ git commit -m "M2.5: ADF pipeline per spike — firmware PDF merge, no pause, st
 **Interfaces:**
 - Consumes: `scan-progress {pages}`, `scan-done {files, partial, warning}` (Task 5; the TS types already mirror it since Task 5), `convertFileSrc` from `@tauri-apps/api/core` (needs only the file path — no `caps.rs` change).
 
-- [ ] **Step 1: Types + labels** — `ScanDone`/progress types updated; Russian copy: «Получено страниц: N», «неполный: N страниц», warning line, «Открыть папку» (exists).
+- [x] **Step 1: Types + labels** — `ScanDone`/progress types updated; Russian copy: «Получено страниц: N», «неполный: N страниц», warning line, «Открыть папку» (exists).
 
-- [ ] **Step 2: Mid-job UI** — counter + elapsed (10 s tick, M2 pattern), text page list (имя, размер) appended per `scan-progress`; JPEG preview only in the result block via `convertFileSrc` (asset protocol scope `scanDir`); PDF pages listed without preview.
+- [x] **Step 2: Mid-job UI** — counter + elapsed (10 s tick, M2 pattern), text page list (имя, размер) appended per `scan-progress`; JPEG preview only in the result block via `convertFileSrc` (asset protocol scope `scanDir`); PDF pages listed without preview.
 
-- [ ] **Step 3: Result block** — files list (previews for `.jpg`), partial badge + warning text, no fake percentage anywhere.
+- [x] **Step 3: Result block** — files list (previews for `.jpg`), partial badge + warning text, no fake percentage anywhere.
 
 - [ ] **Step 4: Verify** — gate + `check:line-count`; offline states exercised by hand (progress events simulate via a `listen` smoke check in dev); visual check at both sizes/themes via the `visual-check` subagent.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ui src-tauri/tauri.conf.json src-tauri/capabilities src-tauri/src/commands/caps.rs
@@ -359,7 +359,7 @@ git commit -m "M2.5: scan screen page counter, partial results and JPEG previews
 **Files:**
 - Modify: `PRD.md` (§7.1 ADF facts from §11, §9 payloads, §12 roadmap row «M2.5», §13.3/13.5 closed or re-scoped), `README.md`, this plan (tick boxes)
 
-- [ ] **Step 1: PRD/README updates** — roadmap row, event table, the lopdf exception in §10, ADF facts, README «ADF multi-sheet» section.
+- [x] **Step 1: PRD/README updates** — roadmap row, event table, the lopdf exception in §10, ADF facts, README «ADF multi-sheet» section.
 
 - [ ] **Step 2: GATE — live acceptance (device).** With the user's explicit go: 3 sheets PDF → one file, `pdfinfo` reports `Pages: 3` and page size ≈ 602.64 × 830.16 pt (M0 reference), opens in GNOME Papers and Firefox; 3 sheets JPEG → 3 `-pN.jpg` with previews; cancel on sheet 2 → `…-partial.pdf`, device `Idle`, no temp files.
 
