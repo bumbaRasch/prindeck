@@ -11,13 +11,17 @@ step-by-step plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
 ## Status
 
 **M0 — protocol spike: done.** **M1 — Tauri shell and eSCL scanning: in
-progress.**
+progress.** **M2 — navigation shell and device overview: done.**
 
-- `ui/` + `src-tauri/` — Tauri 2 app (Rust + vanilla TypeScript): scan screen,
-  background scan task, tray icon, single instance.
+- `ui/` + `src-tauri/` — Tauri 2 app (Rust + vanilla TypeScript): navigation
+  shell (left sidebar with two destinations — Скан and Обзор; icon rail on
+  narrow windows), scan screen, device overview over SNMP (toner/drum levels,
+  page and duplex counters), background status polling every 5 minutes with a
+  cached first paint, tray icon, single instance. Both colour themes follow the
+  system setting; the window can shrink to 640×480.
 - `scripts/escl-probe.mjs` — eSCL scan-job lifecycle (`fetch`-only, no deps).
 - `scripts/probe-snmp.mjs` — SNMPv2c GET with a hand-written BER codec
-  (`node:dgram` only).
+  (`node:dgram` only), including the batched three-varbind GET the app uses.
 - `scripts/screenshot.sh` — screenshots for the `visual-check` agent
   (xdg-desktop-portal; `grim` does not work on this Mutter session).
 - `fixtures/` — raw device responses (XML, JSON), captured on 2026-10-26.
@@ -42,7 +46,8 @@ cargo check --workspace --all-targets
 ```
 
 The config is created on first run at `~/.config/prindeck/config.json`
-(`device.host`, `scanDir`); scans are saved to `~/Documents/scans`.
+(`device.host`, `scanDir`; optional `snmp.community`, `pollSeconds`); scans are
+saved to `~/Documents/scans`.
 
 ## Behaviour
 
@@ -51,6 +56,12 @@ The config is created on first run at `~/.config/prindeck/config.json`
 - A second launch focuses the already running instance.
 - M1 scans the platen only, one page per job, PDF or JPEG. ADF and multi-page
   scanning are out of scope for M1.
+- The Overview screen shows the device data from the last SNMP poll; the poller
+  runs every `pollSeconds` (default 300 s, clamped to 60–3600) and the UI keeps
+  showing the cached snapshot when the device goes silent.
+- The sidebar dot combines the eSCL capabilities state with the SNMP poll; a
+  problem is explained by a banner with a retry action, not by a greyed-out
+  control.
 
 ## Probe scripts
 

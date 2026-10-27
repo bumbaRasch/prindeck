@@ -61,12 +61,17 @@ without `.0` you get `noSuchInstance` (verified for `...5.5.8`, `...5.5.10`,
 
 | OID | Time (UTC) | Raw hex | Length | Decoding | Web check |
 |---|---|---|---|---|---|
-| `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.8.0` (brInfoMaintenance) | 20:41:24.254 | `6301040000000141010400000e1011010400001e49310104000000076f010400000d4881010400000028ff` | 40 B | 6 records, see §3.1 | `#41`=3600 → `Drum 36%` ✓, `#81`=40 → `Toner 40%`, `#11`=7753 → `Page Counter` |
+| `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.8.0` (brInfoMaintenance) | 20:41:24.254 | `6301040000000141010400000e1011010400001e49310104000000076f010400000d4881010400000028ff` | 43 B | 6 records, see §3.1 | `#41`=3600 → `Drum 36%` ✓, `#81`=40 → `Toner 40%`, `#11`=7753 → `Page Counter` |
 | `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.10.0` (brInfoCounter) | 20:41:24.384 | `00010400001e4906010400000f6fff` | 15 B | `#00`=7753, `#06`=3951 | `Page Counter 7753` ✓, `2-sided Print Total 3951` ✓ |
 | `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.11.0` (brInfoNextCare) | 20:41:24.479 | `82010400001097ff` | 8 B | `#82`=4247 — drum remaining in pages | `Drum 36%` (12000−7753=4247) ✓ |
 | `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.18.0` (brInfoCoverage) | 20:41:24.684 | `00020627ff` | 5 B | `6` / `39` → 6.39 % | `Average Coverage 6.39%` ✓ |
 | `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.20.0` (brInfoReplaceCount) | 20:41:24.893 | `820100a00104ff` | 7 B | `#82`=0 (drum), `#a0`=4 (toner) | `Replace Count Toner 4 / Drum 0` ✓ |
 | `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.21.0` (brInfoJamCount) | 20:41:25.099 | `000200000102000221020002220200022302000225020006a10400000008ff` | 31 B | see §3.4 | `Jams 8; Tray1 2; Inside 2; Rear 2; 2-sided 2; ADF 6` ✓ |
+
+M2 note: the application fetches the three runtime nodes — `…5.5.8.0`
+(brInfoMaintenance), `…5.5.10.0` (brInfoCounter), `…5.5.11.0` (brInfoNextCare) —
+in **one multi-varbind GET** (three varbinds, one PDU), not one request per OID
+as in the M0 survey above; the live verification of that shape is in §6.
 
 ## 3. Blob decoding
 
@@ -216,7 +221,7 @@ Raw dumps: `fixtures/snmp/walk-printer-mib.txt`,
 | `43.11.1.1.6.1.1/.2` | `"Black Toner Cartridge"`, `"Drum Unit"` ✓ |
 | `43.11.1.1.8.1.1/.2` | `-2` / `12000` ✓ |
 | `43.11.1.1.9.1.1/.2` | `-3` / `4247` ✓ — toner in % is not provided via MIB |
-| `…5.5.8.0` | 40 B; `#41`=3600, `#11`=7753, `#81`=40 ✓ |
+| `…5.5.8.0` | 43 B; `#41`=3600, `#11`=7753, `#81`=40 ✓ |
 | `…5.5.10.0` | `#00`=7753, `#06`=3951 ✓ |
 | `…5.5.11.0` | `#82`=4247 ✓ |
 | `…5.5.18.0` | `06 27` ✓ |
@@ -233,3 +238,26 @@ Operational observations:
   (see `get-brother-scalars.txt`); this is what is being built into `snmp.rs`.
 - `snmpwalk` is a verification/reconnaissance tool. The application keeps `snmp2`
   (no CLI dependency needed at runtime).
+
+### Live verification of the M2 multi-varbind GET (27.10.2026)
+
+The runtime fetch — one GET PDU with three varbinds (`…5.5.8.0`, `…5.5.10.0`,
+`…5.5.11.0`), the same shape as `SnmpClient::fetch` in
+`src-tauri/src/snmp/client.rs` — was replayed on 27.10.2026 with the batched
+mode of `scripts/probe-snmp.mjs` (community `public`, first attempt, 205 ms).
+The device answered in one response with all three varbinds; every blob is
+byte-for-byte identical to the M0 capture of 26.10.2026:
+
+| Varbind | Raw hex | Decoded |
+|---|---|---|
+| `…5.5.8.0` (brInfoMaintenance) | `6301040000000141010400000e1011010400001e49310104000000076f010400000d4881010400000028ff` (43 B) | `#81`=40 → toner 40 %, `#41`=3600 → drum 36.00 %, `#11`=7753 pages |
+| `…5.5.10.0` (brInfoCounter) | `00010400001e4906010400000f6fff` (15 B) | `#00`=7753 pages, `#06`=3951 duplex pages |
+| `…5.5.11.0` (brInfoNextCare) | `82010400001097ff` (8 B) | `#82`=4247 drum pages left |
+
+Decoded snapshot (the `DeviceStatus` fields of M2): **toner 40 %, drum 36 %,
+pages total 7753, duplex 3951, drum pages left 4247**.
+
+Drift against 26.10.2026: none — the page counter, toner and drum are unchanged
+(no printouts in between), so the counters were expected to move but did not.
+The multi-varbind GET returns the same data as the per-OID GETs of the M0
+survey; the three-varbind shape the Rust client uses is confirmed live.

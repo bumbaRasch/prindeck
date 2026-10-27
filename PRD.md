@@ -138,28 +138,54 @@ the `lp`/`scanimage` CLI. There is no single window: status + toner + scan + pri
 ```
 prindeck (Tauri 2)
 ├─ src-tauri/src/
-│  ├─ main.rs        thin entry point → lib.rs::run()
-│  ├─ lib.rs         builder: window, tray (+menu), single-instance, setup
-│  ├─ commands.rs    #[tauri::command] — IPC boundary (see §9), input validation
-│  ├─ escl.rs        reqwest + quick-xml: capabilities, status, scan-job lifecycle
-│  ├─ snmp.rs        snmp2: GET Printer-MIB + Brother OIDs, mapping to Supply/Counters
-│  ├─ status.rs      merging eSCL-status + SNMP → DeviceStatus; polling (tokio interval)
-│  ├─ print.rs       std::process: lp / lpstat / cancel + output parsing
-│  ├─ history.rs     rusqlite (bundled): snapshots (timestamp, toner, drum, pages)
-│  └─ config.rs      config.json (device ip, intervals, scan folder, thresholds)
-└─ ui/               Vite + TypeScript strict
-   ├─ index.html     SPA: Dashboard / Scan / Print / Settings
-   └─ src/           invoke() → commands; listen() → events; no framework
-                     (vanilla DOM; Preact — only if the DOM code grows, §13)
+│  ├─ main.rs          thin entry point → lib.rs::run()
+│  ├─ lib.rs           builder: window, tray (+menu), single-instance, setup
+│  ├─ commands/        #[tauri::command] — IPC boundary (see §9), input validation
+│  │  ├─ mod.rs        AppState, scan events (scan-progress/scan-done/scan-error)
+│  │  ├─ caps.rs       get_capabilities + capabilities cache
+│  │  ├─ scan.rs       start_scan / cancel_scan, job-id validation
+│  │  ├─ scan_files.rs scan file naming, magic-byte checks
+│  │  ├─ scan_jobs.rs  scan-job runner (POST job, NextDocument loop, cancel)
+│  │  └─ status.rs     get_status / refresh_status / open_printer_panel
+│  ├─ escl.rs          reqwest + quick-xml: capabilities, status, scan-job lifecycle
+│  ├─ snmp/            snmp2: one batched GET of the Brother OIDs (§7.2)
+│  │  ├─ mod.rs        SnmpCounters, blob records → toner/drum/pages fields
+│  │  ├─ blob.rs       OctetString record parser (<id> 01 04 <uint32 BE>, 0xff end)
+│  │  └─ client.rs     SyncSession get_many — 3 varbinds in one PDU
+│  ├─ status/          SNMP → DeviceStatus; cache + polling (tokio interval)
+│  │  ├─ mod.rs        DeviceStatus, StatusCache (cached first paint), `status` event
+│  │  └─ poll.rs       interval from config pollSeconds (default 300 s), one retry
+│  ├─ tray.rs          tray icon + menu ("Show window" / "Quit")
+│  ├─ print.rs         (M3) std::process: lp / lpstat / cancel + output parsing
+│  ├─ history.rs       (M4) rusqlite (bundled): snapshots (timestamp, toner, drum, pages)
+│  └─ config/          config.json (device.host, scanDir, snmp.community, pollSeconds)
+│     ├─ mod.rs        Config, defaults, validation
+│     ├─ error.rs      ConfigError
+│     └─ host.rs       host/address validation
+└─ ui/                 Vite + TypeScript strict
+   ├─ index.html       SPA shell: sidebar + two destinations (Скан, Обзор)
+   └─ src/             no framework — vanilla DOM modules (§13.7)
+      ├─ main.ts       init, wiring, event listeners
+      ├─ api.ts        invoke() wrappers
+      ├─ state.ts      AppState + derivations (connectivity, tones, counters)
+      ├─ shell.ts      sidebar: reachability dot, banners (startup/caps/connection)
+      ├─ router.ts     section switching, roving tabindex
+      ├─ dom.ts        DOM helpers
+      ├─ caps.ts       capabilities fetch/apply
+      ├─ labels.ts     Russian UI strings
+      ├─ types.ts      IPC/domain types
+      ├─ screens/      scan.ts (Скан), overview.ts (Обзор)
+      └─ styles/       base, shell, content, scan, overview
 ```
 
 Data flows: UI → `invoke()` → Rust commands; background processes (status polling,
 scan progress) → `emit()` → UI `listen()`. Scanning — a background `tokio::task`,
 writes files directly (folder dialog — via the tauri dialog plugin / setting).
 
-Each module is isolated: escl/snmp/print do not know about each other, status.rs —
-the single merge point; data flows in one direction — "network → DTO mapping
-→ domain → IPC".
+Each module is isolated: escl/snmp/print do not know about each other. `status/`
+merges SNMP only — the eSCL capabilities state is not part of `DeviceStatus`;
+the shell combines reachability from the eSCL capabilities state and the status
+poll. Data flows in one direction — "network → DTO mapping → domain → IPC".
 
 ## 7. Protocols
 
@@ -263,16 +289,24 @@ mandatory layer.
 
 ## 8. UI/UX
 
-Screens (SPA, dark/light theme following the system):
+Navigation model (M2): a navigation shell — a left sidebar (app name, device
+reachability dot, destination list) and a content area. The dot merges the eSCL
+capabilities state and the SNMP status poll; banners inside the content area
+explain startup/capabilities/connection problems instead of dead ends.
+Destinations (SPA, section switching, no deep links):
 
-1. **Dashboard** — device status card (state icon, badge), two consumable
-   bars with %, page counter, buttons: "Scan", "Print", "Web panel".
-2. **Scan** — settings panel on the left (source, dpi, color, format, folder), a large
-   "Scan" button, progress phase, page previews, "Open folder".
-3. **Print** — dropzone/selection button, parameters, "Send", a table of active
-   jobs with a cancel button.
-4. **Settings** — IP/eSCL path, polling intervals, scan folder, notification
-   thresholds, history (toner chart), snapshot export.
+1. **Скан** — the start screen. Settings panel on the left (source, dpi, color,
+   format, folder), a large "Scan" button, progress phase, result, "Open folder".
+2. **Обзор** — device overview: connection card with manual refresh, toner/drum
+   bars with %, page counter and duplex pages over SNMP, eSCL availability.
+
+Planned destinations: **Печать** (M3 — dropzone/parameters/active jobs) and
+**Настройки** (IP/eSCL path, polling intervals, scan folder, thresholds).
+
+Layout behaviour: below a 820 px viewport width the sidebar collapses into a
+64 px icon rail (labels hidden, only icons); the scan panel reflows by container
+queries. Window: default 900×680, minimum 640×480. Dark and light themes follow
+`prefers-color-scheme`.
 
 Principles: everything in one or two clicks; the state is always visible (what the printer is doing right
 now); device errors are worded with text from SNMP/web panel, not "error".
@@ -289,24 +323,30 @@ Commands (`#[tauri::command]`):
 
 | invoke | Input | Output | Purpose |
 |---|---|---|---|
-| `get_status` | — | `DeviceStatus` | merging eSCL-status + SNMP (toner, drum, counter, errors) |
+| `get_status` | — | `DeviceStatus` | cached snapshot from the status poller (SNMP only: toner, drum, counters, `polledAt`) |
+| `refresh_status` | — | `DeviceStatus` | forced SNMP poll now; error string when the device is silent |
 | `get_capabilities` | — | `ScanCaps` | normalized scanner capabilities |
 | `start_scan` | `ScanParams` | `jobId` | POST ScanJobs, background task |
 | `cancel_scan` | `jobId` | `ok` | DELETE job on the device |
-| `print_file` | `path, PrintOptions` | `cupsJobId` | sending via `lp` |
-| `get_queue` | — | `[CupsJob]` | `lpstat -W not-completed` |
-| `cancel_print` | `cupsJobId` | `ok` | `cancel` |
-| `get_history` | `days` | `[Snapshot]` | from SQLite |
+| `print_file` | `path, PrintOptions` | `cupsJobId` | sending via `lp` (M3) |
+| `get_queue` | — | `[CupsJob]` | `lpstat -W not-completed` (M3) |
+| `cancel_print` | `cupsJobId` | `ok` | `cancel` (M3) |
+| `get_history` | `days` | `[Snapshot]` | from SQLite (M4) |
 | `open_printer_panel` | — | `ok` | web panel via opener |
+
+Shipped in M2: `get_capabilities`, `start_scan`, `cancel_scan`, `get_status`,
+`refresh_status`, `open_printer_panel`; the `status`, `scan-progress`,
+`scan-done`, `scan-error` events. The rest — planned with their milestones.
 
 Events (`emit` → `listen` in the UI):
 
 | Event | Payload | Source |
 |---|---|---|
-| `status` | `DeviceStatus` | status.rs polling |
+| `status` | `DeviceStatus` | status poller (`status/poll.rs`, SNMP), emitted after every poll attempt |
 | `scan-progress` | `{jobId, phase, pages}` | client stages `created → scanning → done` (M1); polling `ScannerStatus` is not needed — `Completed` lags (§7.1) |
 | `scan-done` | `{jobId, file}` | escl scan task (M1: Platen → one file) |
-| `alert` | `{kind, message}` | F4 thresholds |
+| `scan-error` | `{jobId, message}` | scan task failure (user-worded, no raw errors) |
+| `alert` | `{kind, message}` | F4 thresholds (M4) |
 
 ## 10. Stack — APPROVED: Tauri 2
 
@@ -354,7 +394,7 @@ Crate policy: a new crate — only with a justification in the commit descriptio
 |---|---|---|
 | M0 Spike ✅ 26.10.2026 | eSCL end-to-end (curl): JPEG and PDF scan, errors; SNMP OIDs + verification against the web, independent `snmpwalk` check; discrepancies with the PRD found | `docs/escl-l2710dw.md`, `docs/oids-l2710dw.md`, fixtures in `fixtures/` |
 | M1 Skeleton 🚧 27.10.2026 | Tauri 2 scaffold (window+tray+plugins), `config.rs`, `escl.rs`, "Scan" screen | scan → PDF into the folder from the app window |
-| M2 Dashboard | `snmp.rs`, `status.rs`, polling, F1 screen | toner/status matches the web panel |
+| M2 Shell and overview ✅ 27.10.2026 | navigation shell (sidebar + icon rail), `snmp/` (batched GET, blob parsing), `status/` (cache, 5-min polling, `status` event), «Обзор» screen; the print screen stays in M3 | toner/status matches the web panel (live check 27.10.2026, `docs/oids-l2710dw.md` §6) |
 | M3 Printing | `print.rs` (lp/lpstat/cancel), F3 screen | printing with duplex options from the UI |
 | M4 Monitoring | `history.rs`, notifications, chart, tray menu | notification when toner < 15 % |
 | M5 Release | icon, bundler (deb/rpm/AppImage), README+license, GitHub | repository published, install from the artifact |
@@ -373,8 +413,9 @@ Crate policy: a new crate — only with a justification in the commit descriptio
 5. ~~PDF merging on the client~~ — **the firmware does PDF itself**; merging is needed
    only for multi-page ADF (see №3).
 6. License for GitHub: **MIT or Apache-2.0** — decide by M5 (dual is possible).
-7. Vanilla DOM vs Preact for the UI — decide based on the actual complexity of the screens (threshold:
-   > 500 lines of hand-written DOM code → take Preact 10).
+7. ~~Vanilla DOM vs Preact for the UI~~ — **resolved at M2 (27.10.2026)**: vanilla
+   TypeScript modules chosen (two screens ≈ 700 lines of DOM code). Revisit
+   when `ui/src/screens/print.ts` exceeds ~400 lines.
 8. **`snmp2` vs 2-byte Counter32**: the crate may fail to parse `1E49`;
    in M2 check `prtMarkerLifeCount` live, otherwise take pages from
    `brInfoCounter #00` (correct 4 bytes).

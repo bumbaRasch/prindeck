@@ -222,6 +222,23 @@ async function get(opts) {
   throw new Error(`${opts.oid}: ${lastError.message} (${opts.retries} attempts)`);
 }
 
+async function getBatch(opts) {
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const started = Date.now();
+    try {
+      const { response } = await getOnce({ ...opts, oids: BATCH_OIDS.map(([oid]) => oid) });
+      if (response.errorStatus !== 0) {
+        throw new Error(`agent error-status=${response.errorStatus} index=${response.errorIndex}`);
+      }
+      return { varbinds: response.varbinds, elapsedMs: Date.now() - started, attempt };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(`batched get of ${BATCH_OIDS.length} OIDs: ${lastError.message} (2 attempts)`);
+}
+
 const OIDS = [
   ['1.3.6.1.2.1.43.11.1.1.6.1.1', 'prtMarkerSuppliesDescription.1.1'],
   ['1.3.6.1.2.1.43.11.1.1.6.1.2', 'prtMarkerSuppliesDescription.1.2'],
@@ -240,6 +257,45 @@ const OIDS = [
   ['1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.20.0', 'brInfoReplaceCount'],
   ['1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.21.0', 'brInfoJamCount'],
 ];
+
+const BATCH_OIDS = [
+  ['1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.8.0', 'brInfoMaintenance'],
+  ['1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.10.0', 'brInfoCounter'],
+  ['1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.11.0', 'brInfoNextCare'],
+];
+
+function decodeRecords(hex) {
+  const bytes = Buffer.from(hex, 'hex');
+  const records = [];
+  let offset = 0;
+  while (offset < bytes.length && bytes[offset] !== 0xff) {
+    if (offset + 7 > bytes.length) throw new Error('record is truncated');
+    const id = bytes[offset];
+    if (bytes[offset + 1] !== 1 || bytes[offset + 2] !== 4) {
+      throw new Error(`record 0x${id.toString(16)} does not match the <id> 01 04 <uint32> shape`);
+    }
+    records.push([id, bytes.readUInt32BE(offset + 3)]);
+    offset += 7;
+  }
+  return records;
+}
+
+function recordValue(records, id) {
+  const found = records.find(([key]) => key === id);
+  return found === undefined ? null : found[1];
+}
+
+function decodeCounters(varbinds) {
+  const [maintenance, counter, nextCare] = varbinds.map((vb) => decodeRecords(vb.hex));
+  const drumHundredths = recordValue(maintenance, 0x41);
+  return {
+    tonerPercent: recordValue(maintenance, 0x81),
+    drumPercent: drumHundredths === null ? null : Math.floor(drumHundredths / 100),
+    pagesTotal: recordValue(maintenance, 0x11),
+    duplexPages: recordValue(counter, 0x06),
+    drumPagesLeft: recordValue(nextCare, 0x82),
+  };
+}
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -287,8 +343,24 @@ for (const [oid, label] of queries) {
   }
 }
 
+const batchTimestamp = new Date().toISOString();
+let batch;
+try {
+  const r = await getBatch(opts);
+  batch = {
+    timestamp: batchTimestamp,
+    varbinds: r.varbinds.map((vb) => ({ ...vb, label: BATCH_OIDS.find(([oid]) => oid === vb.oid)?.[1] ?? vb.oid })),
+    elapsedMs: r.elapsedMs,
+    attempt: r.attempt,
+    counters: decodeCounters(r.varbinds),
+  };
+} catch (err) {
+  failures += 1;
+  batch = { timestamp: batchTimestamp, error: err.message };
+}
+
 if (values.json) {
-  console.log(JSON.stringify({ community: opts.community, timeoutMs: opts.timeout, retries: opts.retries, results }, null, 2));
+  console.log(JSON.stringify({ community: opts.community, timeoutMs: opts.timeout, retries: opts.retries, results, batch }, null, 2));
 } else {
   for (const r of results) {
     if (r.error) {
@@ -298,6 +370,15 @@ if (values.json) {
       const hex = r.hex ? ` hex=${r.hex}` : '';
       console.log(`${r.label.padEnd(36)} ${r.oid.padEnd(44)} ${r.kind.padEnd(12)} ${printable}${hex} (${r.elapsedMs} ms)`);
     }
+  }
+  console.log('batched GET (3 varbinds, one PDU — the shape the Rust client uses)');
+  if (batch.error) {
+    console.log(`  ERROR ${batch.error}`);
+  } else {
+    for (const vb of batch.varbinds) {
+      console.log(`  ${vb.label.padEnd(36)} ${vb.oid.padEnd(44)} ${vb.kind.padEnd(12)} ${vb.bytes} B hex=${vb.hex} (${batch.elapsedMs} ms)`);
+    }
+    console.log(`  decoded ${JSON.stringify(batch.counters)}`);
   }
 }
 
