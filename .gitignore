@@ -1,0 +1,31 @@
+# Node
+node_modules/
+dist/
+*.log
+
+# Rust / Tauri (M1+)
+target/
+
+# Tauri generated (merged from the scaffold's src-tauri/.gitignore)
+src-tauri/gen/schemas/
+
+# Scans and other bulky generated artifacts — never commit device output
+scans/
+out/
+tmp/
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.pnm
+
+# Secrets
+.env
+.env.*
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+*~
+*.swp

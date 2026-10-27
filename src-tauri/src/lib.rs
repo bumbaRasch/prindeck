@@ -1,0 +1,63 @@
+pub mod commands;
+pub mod config;
+pub mod escl;
+#[cfg(desktop)]
+pub mod tray;
+
+use commands::AppState;
+use tauri::WindowEvent;
+
+fn init_tracing() {
+    use tracing_subscriber::EnvFilter;
+
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("prindeck=info"));
+
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .try_init();
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    init_tracing();
+
+    let builder = tauri::Builder::default();
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        tray::show_main_window(app);
+    }));
+
+    builder
+        .plugin(tauri_plugin_opener::init())
+        .manage(AppState::initialize())
+        .setup(|app| {
+            #[cfg(desktop)]
+            if let Err(error) = tray::setup(app) {
+                tracing::error!(%error, "failed to create the tray icon");
+            }
+            #[cfg(not(desktop))]
+            let _ = app;
+
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if let Err(error) = window.hide() {
+                    tracing::error!(%error, "failed to hide the window");
+                }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::get_capabilities,
+            commands::start_scan,
+            commands::cancel_scan,
+            commands::open_scan_folder,
+            commands::get_startup_error,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

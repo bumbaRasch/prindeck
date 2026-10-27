@@ -1,0 +1,49 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import type {
+  ScanCaps,
+  ScanDone,
+  ScanError,
+  ScanParams,
+  ScanProgress,
+} from "./types";
+
+export type UnlistenFn = () => void;
+
+export function getCapabilities(): Promise<ScanCaps> {
+  return invoke<ScanCaps>("get_capabilities");
+}
+
+export function getStartupError(): Promise<string | null> {
+  return invoke<string | null>("get_startup_error");
+}
+
+export function startScan(params: ScanParams): Promise<string> {
+  return invoke<string>("start_scan", { params });
+}
+
+export function cancelScan(jobId: string): Promise<void> {
+  return invoke<void>("cancel_scan", { jobId });
+}
+
+export function openScanFolder(): Promise<void> {
+  return invoke<void>("open_scan_folder");
+}
+
+export function onScanProgress(
+  callback: (payload: ScanProgress) => void,
+): Promise<UnlistenFn> {
+  return listen<ScanProgress>("scan-progress", (event) => callback(event.payload));
+}
+
+export function onScanDone(
+  callback: (payload: ScanDone) => void,
+): Promise<UnlistenFn> {
+  return listen<ScanDone>("scan-done", (event) => callback(event.payload));
+}
+
+export function onScanError(
+  callback: (payload: ScanError) => void,
+): Promise<UnlistenFn> {
+  return listen<ScanError>("scan-error", (event) => callback(event.payload));
+}

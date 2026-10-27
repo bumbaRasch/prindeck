@@ -1,0 +1,169 @@
+{
+  "community": "public",
+  "timeoutMs": 2000,
+  "retries": 3,
+  "results": [
+    {
+      "timestamp": "2026-10-26T20:41:22.295Z",
+      "label": "prtMarkerSuppliesDescription.1.1",
+      "oid": "1.3.6.1.2.1.43.11.1.1.6.1.1",
+      "kind": "octet-string",
+      "value": "Black Toner Cartridge",
+      "hex": "426c61636b20546f6e657220436172747269646765",
+      "bytes": 21,
+      "elapsedMs": 142,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:22.437Z",
+      "label": "prtMarkerSuppliesDescription.1.2",
+      "oid": "1.3.6.1.2.1.43.11.1.1.6.1.2",
+      "kind": "octet-string",
+      "value": "Drum Unit",
+      "hex": "4472756d20556e6974",
+      "bytes": 9,
+      "elapsedMs": 199,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:22.636Z",
+      "label": "prtMarkerSuppliesDescription.1.3",
+      "oid": "1.3.6.1.2.1.43.11.1.1.6.1.3",
+      "kind": "noSuchInstance",
+      "value": null,
+      "elapsedMs": 205,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:22.841Z",
+      "label": "prtMarkerSuppliesMaxCapacity.1.1",
+      "oid": "1.3.6.1.2.1.43.11.1.1.8.1.1",
+      "kind": "integer",
+      "value": -2,
+      "elapsedMs": 204,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:23.045Z",
+      "label": "prtMarkerSuppliesMaxCapacity.1.2",
+      "oid": "1.3.6.1.2.1.43.11.1.1.8.1.2",
+      "kind": "integer",
+      "value": 12000,
+      "elapsedMs": 209,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:23.255Z",
+      "label": "prtMarkerSuppliesLevel.1.1",
+      "oid": "1.3.6.1.2.1.43.11.1.1.9.1.1",
+      "kind": "integer",
+      "value": -3,
+      "elapsedMs": 205,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:23.460Z",
+      "label": "prtMarkerSuppliesLevel.1.2",
+      "oid": "1.3.6.1.2.1.43.11.1.1.9.1.2",
+      "kind": "integer",
+      "value": 4247,
+      "elapsedMs": 205,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:23.665Z",
+      "label": "prtMarkerSuppliesLevel.1.3",
+      "oid": "1.3.6.1.2.1.43.11.1.1.9.1.3",
+      "kind": "noSuchInstance",
+      "value": null,
+      "elapsedMs": 200,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:23.865Z",
+      "label": "prtMarkerLifeCount.1.1",
+      "oid": "1.3.6.1.2.1.43.10.2.1.4.1.1",
+      "kind": "counter32",
+      "value": 7753,
+      "hex": "1e49",
+      "bytes": 2,
+      "elapsedMs": 209,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:24.074Z",
+      "label": "hrDeviceStatus.1",
+      "oid": "1.3.6.1.2.1.25.3.2.1.5.1",
+      "kind": "integer",
+      "value": 2,
+      "elapsedMs": 180,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:24.254Z",
+      "label": "brInfoMaintenance",
+      "oid": "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.8.0",
+      "kind": "octet-string",
+      "value": "c\u0001\u0004\u0000\u0000\u0000\u0001A\u0001\u0004\u0000\u0000\u000e\u0010\u0011\u0001\u0004\u0000\u0000\u001eI1\u0001\u0004\u0000\u0000\u0000\u0007o\u0001\u0004\u0000\u0000\rH\u0001\u0004\u0000\u0000\u0000(ÿ",
+      "hex": "6301040000000141010400000e1011010400001e49310104000000076f010400000d4881010400000028ff",
+      "bytes": 43,
+      "elapsedMs": 130,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:24.384Z",
+      "label": "brInfoCounter",
+      "oid": "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.10.0",
+      "kind": "octet-string",
+      "value": "\u0000\u0001\u0004\u0000\u0000\u001eI\u0006\u0001\u0004\u0000\u0000\u000foÿ",
+      "hex": "00010400001e4906010400000f6fff",
+      "bytes": 15,
+      "elapsedMs": 95,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:24.479Z",
+      "label": "brInfoNextCare",
+      "oid": "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.11.0",
+      "kind": "octet-string",
+      "value": "\u0001\u0004\u0000\u0000\u0010ÿ",
+      "hex": "82010400001097ff",
+      "bytes": 8,
+      "elapsedMs": 205,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:24.684Z",
+      "label": "brInfoCoverage",
+      "oid": "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.18.0",
+      "kind": "octet-string",
+      "value": "\u0000\u0002\u0006'ÿ",
+      "hex": "00020627ff",
+      "bytes": 5,
+      "elapsedMs": 208,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:24.893Z",
+      "label": "brInfoReplaceCount",
+      "oid": "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.20.0",
+      "kind": "octet-string",
+      "value": "\u0001\u0000 \u0001\u0004ÿ",
+      "hex": "820100a00104ff",
+      "bytes": 7,
+      "elapsedMs": 206,
+      "attempt": 1
+    },
+    {
+      "timestamp": "2026-10-26T20:41:25.099Z",
+      "label": "brInfoJamCount",
+      "oid": "1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.21.0",
+      "kind": "octet-string",
+      "value": "\u0000\u0002\u0000\u0000\u0001\u0002\u0000\u0002!\u0002\u0000\u0002\"\u0002\u0000\u0002#\u0002\u0000\u0002%\u0002\u0000\u0006¡\u0004\u0000\u0000\u0000\bÿ",
+      "hex": "000200000102000221020002220200022302000225020006a10400000008ff",
+      "bytes": 31,
+      "elapsedMs": 187,
+      "attempt": 1
+    }
+  ]
+}

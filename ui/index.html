@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prindeck — скан</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <main id="app" class="screen">
+      <header class="screen-header">
+        <h1 class="screen-title">Скан</h1>
+        <p id="device-model" class="device-model"></p>
+      </header>
+
+      <div id="startup-banner" class="banner banner--warn" role="status" hidden>
+        <div class="banner-body">
+          <p class="banner-title">Проблема с конфигурацией</p>
+          <p id="startup-banner-text" class="banner-text"></p>
+        </div>
+      </div>
+
+      <div id="caps-banner" class="banner banner--error" role="alert" hidden>
+        <div class="banner-body">
+          <p class="banner-title">Устройство недоступно</p>
+          <p id="caps-banner-text" class="banner-text"></p>
+        </div>
+        <button id="caps-retry" class="button button--ghost" type="button">
+          Повторить
+        </button>
+      </div>
+
+      <form id="scan-form" class="panel" novalidate>
+        <div class="fields">
+          <label class="field">
+            <span class="field-label">Источник</span>
+            <select id="source" class="select"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">Разрешение</span>
+            <select id="dpi" class="select"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">Цвет</span>
+            <select id="color" class="select"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">Формат</span>
+            <select id="format" class="select"></select>
+          </label>
+        </div>
+
+        <p id="format-hint" class="hint" hidden></p>
+
+        <div class="actions">
+          <button id="start" class="button button--primary" type="submit">
+            Сканировать
+          </button>
+          <button
+            id="cancel"
+            class="button button--secondary"
+            type="button"
+            hidden
+          >
+            Отмена
+          </button>
+        </div>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </form>
+
+      <section id="result" class="result" hidden>
+        <h2 class="result-title">Файл готов</h2>
+        <code id="result-path" class="result-path"></code>
+        <button id="open-folder" class="button button--secondary" type="button">
+          Открыть папку
+        </button>
+      </section>
+    </main>
+  </body>
+</html>

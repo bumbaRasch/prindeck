@@ -1,0 +1,395 @@
+# PRD: prindeck
+
+Control panel for the Brother MFC-L2710DW on Linux — an equivalent of Brother iPrint&Scan (Windows/Android/iOS), which does not officially exist for Linux. Tauri 2: native window, tray, autostart.
+
+- Status: M0 ✅ 26.10.2026, M1 in progress (branch `m1-scan`)
+- Author: bumbarasch
+- Date: 2026-10-26 (revision 27.10.2026)
+- Currency: device facts — M0 spike 26.10.2026; stack versions
+  re-checked 27.10.2026 (§0)
+- Repository: `~/Documents/projects/prindeck/`
+- Name: **prindeck** — print + deck; no vendor TM; free on GitHub/crates/npm
+  (checked via API 26.10.2026: GitHub 0 repos, crates.io 404, npm 404)
+
+---
+
+## 0. Currency as of 26.10.2026
+
+| What | State as of 26.10.2026 | Conclusion for the project |
+|---|---|---|
+| iPrint&Scan on Linux | Still Windows/macOS/Android/iOS only; for Linux Brother provides only drivers (brscan4/5, brscan-skey) | Problem §1 is not closed by the vendor — the project is still relevant |
+| brscan5 on Fedora | Official deb/rpm break on Fedora 40+ (GTK2 dependencies, FAQ at support.brother.com) | An additional argument for the driverless path without Brother binary drivers |
+| eSCL / Mopria | The spec is public, the protocol is stable; sane-airscan in fresh repos — 0.99.38 | A mature protocol, the risk of a format change is minimal |
+| Node.js / Rust | Node 26 — Latest LTS since 20.10.2026; Rust — a stable mainstream choice for Tauri | Tauri 2 — the current mainstream of desktop applications |
+| Tauri 2 | Crate 2.12.5, tauri-build 2.7.4, create-tauri-app 4.8.0 (checked 27.10.2026) | The stack is alive; versions in §10 updated |
+| SNMP crate | `snmp2` 0.5.x (roboplc): dependency-free, v1/v2c/v3, sync/async, ~1.3M downloads — maintained; `rasn-snmp` — a heavy ASN.1 framework | Taking `snmp2` (the overkill alternative is recorded) |
+| Driverless printing | IPP Everywhere — the default CUPS path in current distributions | The queue is already set up; we do not touch system printing |
+
+Policy: before starting each stage (M1+) — a quick re-check of the versions from this
+table; on discrepancy — update the table and the stack item §10.
+
+## 1. Problem
+
+Brother iPrint&Scan is available only on Windows/macOS/Android/iOS. On Linux Brother
+provides drivers (CUPS/LPR, brscan4/5, brscan-skey), but not an application with a UI.
+Control comes down to scattered tools: the printer web panel in a browser, `simple-scan`,
+the `lp`/`scanimage` CLI. There is no single window: status + toner + scan + print + history.
+
+## 2. Goals and non-goals
+
+### Goals (v1)
+
+1. One native window (Tauri 2): device state dashboard, scan, print;
+   tray icon, autostart, system notifications.
+2. All device interaction over open protocols (eSCL, SNMP, CUPS) —
+   **without Brother binary drivers**.
+3. Minimum dependencies: the crate list is fixed in §10, a new crate =
+   justification in the commit.
+4. Works offline, bound to one machine/printer, no cloud.
+5. Readiness for publication on GitHub: README with a disclaimer of non-affiliation
+   with Brother, license, CI build (v1 — local bundler: deb/rpm/AppImage).
+
+### Non-goals (v1)
+
+- We do not replace system printing — CUPS remains the print engine (the queue is already configured).
+- We do not support multiple printers (not forbidden architecturally, but not tested).
+- We do not emulate the «Scan to PC» button on the device body (v2, see §12).
+- We do not do OCR/document search (v2, tesseract as an optional add-on).
+- Fax — no (the device has the module, but it is not needed).
+- Windows/macOS builds — no (Tauri allows it, but we do not test it).
+
+## 3. Device and environment (fixed facts)
+
+| Fact | Value |
+|---|---|
+| Device | Brother MFC-L2710DW (mono laser, ADF 50 sheets simplex, auto-duplex printing) |
+| IP | `192.168.187.36` |
+| Web panel | `http://192.168.187.36/` (responds, title «Brother MFC-L2710DW series») |
+| eSCL endpoint | `http://192.168.187.36:80/eSCL/` (confirmed by `airscan-discover`, WSD also present) |
+| CUPS queue | `Brother_MFC_L2710DW_series` (driver brlaser, PPD installed) |
+| SANE | `sane-airscan` installed, sees the device |
+| OS | Ubuntu 26.04.1 LTS (checked at M0; the PRD previously said «Fedora» erroneously); WebKitGTK runtime 2.52.6 and dev headers 2.52.6, Rust 1.99.1 — installed 27.10.2026, see `docs/m1-prerequisites.md` |
+
+## 4. Functional requirements
+
+### F1. Dashboard (main screen)
+
+- Device status: idle / printing / scanning / busy / error+error text / offline.
+- Black toner (%) and drum level — bars with a number.
+- Printed page counter (total).
+- Link "Open printer web panel", via tauri-plugin-opener.
+- Refresh: manual refresh + auto-polling with a configurable interval (default 30 s).
+- Data is cached: the last response is shown instantly, stale data
+  is marked with a time ("updated 12 s ago"), device offline → grey badge.
+
+### F2. Scanning (core value)
+
+- Source: platen (Platen) / feeder (Feeder/ADF).
+- Resolution: only from ScannerCapabilities. On the MFC-L2710DW — 100/200/300/600;
+  150 is absent (the device silently substitutes 300 for it, checked at M0).
+- Color: `RGB24` / `Grayscale8` / `BlackAndWhite1` — exact names from capabilities.
+  The pair `BlackAndWhite1` + JPEG on the device yields `409` — validate before sending.
+- Output format: JPEG (per page) / PDF (multi-page — merging on the client
+  or PDF from the device, whichever the firmware returns; decision per spike §13).
+- ADF: all sheets from the feeder with one button → one PDF.
+- Save location: default folder (setting), file name = `scan-YYYYMMDD-HHMMSS`.
+- Progress: indication of job phases (created → scanning → N pages received → done).
+- Result preview and an "Open folder" action after completion.
+- Cancel: DELETE scan-job on the device.
+
+### F3. Printing
+
+- File selection (PDF/images/text) via the native Tauri dialog or drag-and-drop.
+- Parameters: copies (1–99), duplex (off / long-edge / short-edge), quality
+  (draft/normal), resolution/toner saving (from the queue's PPD/IPP attributes).
+- Sending via CUPS (`lp`): job status visible in the UI (processing/completed/error).
+- Active queue: list of unfinished jobs + a `cancel` action.
+
+### F4. Monitoring and history
+
+- Background SNMP polling (toner, status) with a configurable interval (default 5 min).
+- System notifications (tauri-plugin-notification) on: toner < 15 %, drum < 10 %,
+  device error, offline → online transition (no more than 1 notification per event).
+- Tray icon: status color + menu ("Show window", "Scan", "Open panel",
+  "Quit"); on Linux the tray icon requires a menu to be set (a Tauri peculiarity).
+- History of toner levels/page counter: local SQLite (90-day chart).
+- "State report": once a week/month take a snapshot to a file (optional, off).
+
+## 5. Non-functional requirements
+
+1. **Security**: no secrets (SNMP community `public` — configurable);
+   no telemetry, everything local; eSCL/SNMP traffic — only to the printer's LAN address.
+2. **Crate discipline**: the list is fixed in §10; frontend —
+   TypeScript strict without build surprises (Vite); a minimal DOM layer.
+3. **Reliability**: all requests to the device with a timeout (5 s) and limited
+   retries; the device may stay silent — the UI must not hang; polling in
+   `tokio::task` with correct cancellation when the window closes.
+4. **Resources**: when idle, polling must not consume CPU (one SNMP batch every 5 min),
+   a tray window does not render; memory < 100 MB.
+5. **Validation at boundaries**: the config (`config.json`) is validated at startup,
+   error → ConfigError dialog; internal types are trusted.
+6. **Resilience to firmware changes**: everything we parse (XML capabilities, SNMP)
+   must not fail on unfamiliar fields — unknown → ignore + log (tracing).
+7. **GitHub hygiene**: no keys/private data in the repo; README disclaimer
+   "not affiliated with Brother Industries"; license (MIT or Apache-2.0 — §13).
+
+## 6. Architecture
+
+```
+prindeck (Tauri 2)
+├─ src-tauri/src/
+│  ├─ main.rs        thin entry point → lib.rs::run()
+│  ├─ lib.rs         builder: window, tray (+menu), single-instance, setup
+│  ├─ commands.rs    #[tauri::command] — IPC boundary (see §9), input validation
+│  ├─ escl.rs        reqwest + quick-xml: capabilities, status, scan-job lifecycle
+│  ├─ snmp.rs        snmp2: GET Printer-MIB + Brother OIDs, mapping to Supply/Counters
+│  ├─ status.rs      merging eSCL-status + SNMP → DeviceStatus; polling (tokio interval)
+│  ├─ print.rs       std::process: lp / lpstat / cancel + output parsing
+│  ├─ history.rs     rusqlite (bundled): snapshots (timestamp, toner, drum, pages)
+│  └─ config.rs      config.json (device ip, intervals, scan folder, thresholds)
+└─ ui/               Vite + TypeScript strict
+   ├─ index.html     SPA: Dashboard / Scan / Print / Settings
+   └─ src/           invoke() → commands; listen() → events; no framework
+                     (vanilla DOM; Preact — only if the DOM code grows, §13)
+```
+
+Data flows: UI → `invoke()` → Rust commands; background processes (status polling,
+scan progress) → `emit()` → UI `listen()`. Scanning — a background `tokio::task`,
+writes files directly (folder dialog — via the tauri dialog plugin / setting).
+
+Each module is isolated: escl/snmp/print do not know about each other, status.rs —
+the single merge point; data flows in one direction — "network → DTO mapping
+→ domain → IPC".
+
+## 7. Protocols
+
+### 7.1 Scanning — eSCL (M0 facts, 26.10.2026)
+
+RESTful HTTP+XML (originated at HP, published by Mopria; reference — `sane-airscan`).
+Base path: `http://192.168.187.36/eSCL/`. Everything below was taken from the live device;
+the full log — `docs/escl-l2710dw.md`.
+
+Observed flow:
+
+1. `GET /eSCL/ScannerCapabilities` → XML (`pwg:Version 2.63`, `eSCL-1_92.xsd`):
+   resolutions **100/200/300/600** (150 is absent — 300 is returned silently), ColorMode
+   **`BlackAndWhite1` / `Grayscale8` / `RGB24`**, formats **`application/pdf`
+   and `image/jpeg`** (the PDF is assembled by the firmware), Platen regions `2550×3507` (A4) and
+   ADF `2550×4200` (Legal), units 1/300″; ADF — simplex only (20 sheets).
+2. `POST /eSCL/ScanJobs` (body `ScanSettings` — **on one line**) → `201` +
+   `Location: http://…/eSCL/ScanJobs/<uuid-v1>`.
+3. There is no separate `GET {job}/ScannerJobStatus` (404). The job state
+   (`Pending|Processing|Completed|Canceled`, reasons `JobScanning|
+   JobCompletedSuccessfully|JobCanceledAtDevice|JobTimedOut`) is read in
+   `GET /eSCL/ScannerStatus` → `scan:Jobs/scan:JobInfo/pwg:JobState`.
+4. `GET {job}/NextDocument` — blocking (A4 @300 dpi ≈ 7.8–8.6 s), returns
+   JPEG/PDF; end of document — `404` with an empty body; document name — in
+   `Content-Location: …/doc-N` (there is no `DocumentUri` element). Without reading it out
+   ≈ 61 s → `Canceled/JobTimedOut`.
+5. `DELETE {job}` — `200` on an active job, `404` after completion. `DELETE`
+   during a blocking `NextDocument` → `200`, and the hanging fetch is aborted with
+   **`410 Gone`** (0 B) — a normal cancel, not an error (checked 27.10.2026;
+   `docs/escl-l2710dw.md` §10).
+
+Mandatory caveats (verified by A/B tests):
+- `ScanSettings` body — **no line breaks**: any `\n` ⇒ the settings are silently
+  ignored (the scan is "successful", but 200 dpi/RGB24) — the main M1 risk.
+- `InputSource` in ScanSettings — `pwg:` (`Platen`/`Feeder`); in capabilities
+  the sources are described as `scan:Platen/scan:PlatenInputCaps`,
+  `scan:Adf/scan:AdfSimplexInputCaps`.
+- `ScanRegions` is mandatory; `BlackAndWhite1` + `image/jpeg` → `409`;
+  an empty Feeder → `500`; busy → `503`.
+
+Working `ScanSettings` (fixture: `fixtures/escl/scansettings-platen-300-gray-pdf.xml`):
+
+```xml
+<scan:ScanSettings xmlns:pwg="http://www.pwg.org/schemas/2010/12/sm" xmlns:scan="http://schemas.hp.com/imaging/escl/2011/05/03"><pwg:Version>2.0</pwg:Version><scan:Intent>Document</scan:Intent><pwg:ScanRegions><pwg:ScanRegion><pwg:ContentRegionUnits>escl:ThreeHundredthsOfInches</pwg:ContentRegionUnits><pwg:XOffset>0</pwg:XOffset><pwg:YOffset>0</pwg:YOffset><pwg:Width>2550</pwg:Width><pwg:Height>3507</pwg:Height></pwg:ScanRegion></pwg:ScanRegions><pwg:InputSource>Platen</pwg:InputSource><scan:ColorMode>Grayscale8</scan:ColorMode><pwg:DocumentFormat>application/pdf</pwg:DocumentFormat><scan:DocumentFormatExt>application/pdf</scan:DocumentFormatExt><scan:XResolution>300</scan:XResolution><scan:YResolution>300</scan:YResolution></scan:ScanSettings>
+```
+
+Results: JPEG 2512×3460 @300 dpi (Grayscale8 — 1 component, RGB24 — 3);
+PDF — 1 page 602.64×830.16 pt; `BlackAndWhite1` — true 1-bit CCITT.
+Multi-page ADF PDF not verified (no paper) — open question §13.3.
+
+### 7.2 Status/toner — SNMP (snmp2)
+
+Two sources, merged in status.rs:
+
+**Standard Printer-MIB (RFC 3805)** — primary:
+
+| Data | OID |
+|---|---|
+| Consumable level (toner %) | `1.3.6.1.2.1.43.11.1.1.9.1.<n>` |
+| Consumable name | `1.3.6.1.2.1.43.11.1.1.6.1.<n>` |
+| Max capacity | `1.3.6.1.2.1.43.11.1.1.8.1.<n>` |
+| Page counter (life count) | `1.3.6.1.2.1.43.10.2.1.4.1.1` |
+| Device status | `1.3.6.1.2.1.25.3.2.1.5.1` (hrDeviceStatus) |
+
+M0 facts: `prtMarkerSuppliesLevel.1.1 = -3` ("some remaining"),
+`MaxCapacity.1.1 = -2` → **toner in % via Printer-MIB is unavailable**; the drum —
+`4247` pages out of `12000`; the page counter — `Counter32`, but the firmware encodes it
+**with two bytes** (`1E49`), formally violating BER (a risk for `snmp2`, §13.8).
+`hrDeviceStatus = 2` was also observed on a sleeping device — the M2 mapping needs clarification.
+
+**Brother enterprise OIDs** (**mandatory** source — Printer-MIB does not give %;
+the MFC-L27xx series has been reverse-engineered):
+
+| Node | OID | Contents |
+|---|---|---|
+| brInfoCounter | `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.10` | counters: pages, drum |
+| brInfoMaintenance | `1.3.6.1.4.1.2435.2.3.9.4.2.1.5.5.8` | remaining resource in % (in units of 0.01) |
+| brInfoNextCare / JamCount / ReplaceCount | `…5.5.x` | maintenance, jams, replacements |
+
+Format — OctetString blobs; the grammar is **heterogeneous across nodes** (see
+`docs/oids-l2710dw.md`). Fields verified at M0: `5.5.8.0` → `#81` toner 40 %
+(matched the web), `#41` drum 36.00 %; `5.5.10.0` → `#00` pages 7753,
+`#06` duplex 3951; `5.5.11.0` → `#82` drum 4247 pages; `5.5.21.0` → `#a1`
+jams 8. The nodes respond **only with `.0`**. Parsing rule: only verified
+fields, unknown ids — skip with a log (PRD §5.6). Independent verification with
+`snmpwalk` — `docs/oids-l2710dw.md` §6. At runtime — `snmp2`, not the CLI.
+
+### 7.3 Printing — via CUPS
+
+- Sending: `lp -d Brother_MFC_L2710DW_series -n <copies> -o duplex=<mode> <file>`.
+- Queue: `lpstat -W not-completed -o`, cancel: `cancel <job-id>`.
+- We take duplex/quality options from the queue's PPD (`lpoptions -p … -l`).
+- Direct IPP client — not doing it in v1: CUPS already handles discovery, retries, PPD;
+  return to it only if a need outside CUPS appears.
+
+### 7.4 Discovery
+
+v1: device IP in the config, on startup — an availability check.
+v2: mDNS discovery (`_uscan._tcp`/`_ipp._tcp`) — the mdns-sd crate, a pleasant but not
+mandatory layer.
+
+## 8. UI/UX
+
+Screens (SPA, dark/light theme following the system):
+
+1. **Dashboard** — device status card (state icon, badge), two consumable
+   bars with %, page counter, buttons: "Scan", "Print", "Web panel".
+2. **Scan** — settings panel on the left (source, dpi, color, format, folder), a large
+   "Scan" button, progress phase, page previews, "Open folder".
+3. **Print** — dropzone/selection button, parameters, "Send", a table of active
+   jobs with a cancel button.
+4. **Settings** — IP/eSCL path, polling intervals, scan folder, notification
+   thresholds, history (toner chart), snapshot export.
+
+Principles: everything in one or two clicks; the state is always visible (what the printer is doing right
+now); device errors are worded with text from SNMP/web panel, not "error".
+
+Localization: the UI language follows the system locale. If the system language is
+not supported, the UI falls back to English. Russian is one of the supported
+languages. The M1 build ships Russian strings only; the locale-based selection is
+part of the i18n work (the strings will move to translation catalogs, English as
+the fallback).
+
+## 9. IPC contract (Tauri invoke / events)
+
+Commands (`#[tauri::command]`):
+
+| invoke | Input | Output | Purpose |
+|---|---|---|---|
+| `get_status` | — | `DeviceStatus` | merging eSCL-status + SNMP (toner, drum, counter, errors) |
+| `get_capabilities` | — | `ScanCaps` | normalized scanner capabilities |
+| `start_scan` | `ScanParams` | `jobId` | POST ScanJobs, background task |
+| `cancel_scan` | `jobId` | `ok` | DELETE job on the device |
+| `print_file` | `path, PrintOptions` | `cupsJobId` | sending via `lp` |
+| `get_queue` | — | `[CupsJob]` | `lpstat -W not-completed` |
+| `cancel_print` | `cupsJobId` | `ok` | `cancel` |
+| `get_history` | `days` | `[Snapshot]` | from SQLite |
+| `open_printer_panel` | — | `ok` | web panel via opener |
+
+Events (`emit` → `listen` in the UI):
+
+| Event | Payload | Source |
+|---|---|---|
+| `status` | `DeviceStatus` | status.rs polling |
+| `scan-progress` | `{jobId, phase, pages}` | client stages `created → scanning → done` (M1); polling `ScannerStatus` is not needed — `Completed` lags (§7.1) |
+| `scan-done` | `{jobId, file}` | escl scan task (M1: Platen → one file) |
+| `alert` | `{kind, message}` | F4 thresholds |
+
+## 10. Stack — APPROVED: Tauri 2
+
+The decision was fixed on 26.10.2026 (A: Node zero-dep, C: Electron were considered —
+rejected; the record of the comparison is preserved in the PRD's git history).
+
+**Core: Tauri 2 (Rust) + Vite/TypeScript UI.**
+
+- `tauri` 2.12.x + official plugins: `notification`, `autostart`,
+  `single-instance`, `opener`, `dialog`; tray — from the core (feature `tray-icon`,
+  on Linux the menu is mandatory, tray events are not emitted).
+  In M1 only `opener` and `single-instance` are wired up — the rest in M3/M4.
+- Rust crates (fixed list):
+  - `reqwest` 0.13 — eSCL HTTP client (no TLS: the device is over HTTP);
+  - `quick-xml` + `serde` — parsing capabilities/status/ScanSettings;
+  - `snmp2` 0.5.x — SNMPv2c GET (dependency-free, maintained; `rasn-snmp` —
+    deliberately not taken: an ASN.1 framework is overkill for GET polling);
+  - `rusqlite` (bundled) — snapshot history;
+  - `tokio` — comes with Tauri; `tracing` — logs; `dirs` — XDG paths;
+  - `chrono` — timestamps/file names.
+- Frontend: TypeScript strict, vanilla DOM; no framework introduced (see §13 question 7).
+- Build: tauri bundler → `.deb`/`.rpm`/AppImage; CI (GitHub Actions) — v1.x.
+
+Crate policy: a new crate — only with a justification in the commit description.
+
+## 11. References
+
+- eSCL overview (history, flow, namespace, DNS-SD): printerarchive.net/tools/escl
+- Specification: "Mopria Alliance eSCL Scan Technical Specification" (behind click-through)
+- Client reference implementation: github.com/alexpevzner/sane-airscan
+  (eSCL+WSD; 0.99.38 in fresh repositories as of 26.10.2026)
+- Rust eSCL flow reference: github.com/ElXreno/escl-scan
+- Brother SNMP OctetString reverse (incl. MFC-L2720DW — the same series):
+  github.com/saper-2/BRN-Printer-sCounters-Info
+- Brother monitoring over SNMP (Printer-MIB, codes -3/-2/-1):
+  claudiokuenzler.com/blog/1422/
+- Standard OIDs: BROTHER-MIB / Printer-MIB (mibs.observium.org)
+- SNMP crate: github.com/roboplc/snmp2 (dependency-free, v1/v2c/v3)
+- Tauri 2 tray on Linux (a menu is needed for the icon to be visible): docs.rs/tauri 2.9.x
+- Tauri plugins: v2.tauri.app/plugin/ (notification, autostart, single-instance, opener)
+
+## 12. Roadmap
+
+| Stage | Contents | Readiness criterion |
+|---|---|---|
+| M0 Spike ✅ 26.10.2026 | eSCL end-to-end (curl): JPEG and PDF scan, errors; SNMP OIDs + verification against the web, independent `snmpwalk` check; discrepancies with the PRD found | `docs/escl-l2710dw.md`, `docs/oids-l2710dw.md`, fixtures in `fixtures/` |
+| M1 Skeleton 🚧 27.10.2026 | Tauri 2 scaffold (window+tray+plugins), `config.rs`, `escl.rs`, "Scan" screen | scan → PDF into the folder from the app window |
+| M2 Dashboard | `snmp.rs`, `status.rs`, polling, F1 screen | toner/status matches the web panel |
+| M3 Printing | `print.rs` (lp/lpstat/cancel), F3 screen | printing with duplex options from the UI |
+| M4 Monitoring | `history.rs`, notifications, chart, tray menu | notification when toner < 15 % |
+| M5 Release | icon, bundler (deb/rpm/AppImage), README+license, GitHub | repository published, install from the artifact |
+| v2 | mDNS discovery, OCR add-on, «Scan to PC» from the device body, other distributions | — |
+
+## 13. Spikes and open questions
+
+1. ~~Exact XML names of eSCL fields~~ — **resolved at M0**: see §7.1 (ColorMode
+   `BlackAndWhite1`/`Grayscale8`/`RGB24`; no 150 dpi; PDF from the firmware available).
+2. ~~Toner % via Printer-MIB~~ — **resolved at M0**: the MIB returns `-3`/`-2`;
+   the percentage — only from the blob (`#81`), verified against the web (40 %).
+3. **ADF multi-page** — remains: PDF from the device works (1 page), but
+   multi-page ADF is not verified (no paper); sane-airscan has a quirk
+   "≥ 1 s between `NextDocument`" — verify at M1 with paper.
+4. ~~Stack: A vs B~~ — **resolved 26.10.2026: B (Tauri 2)**.
+5. ~~PDF merging on the client~~ — **the firmware does PDF itself**; merging is needed
+   only for multi-page ADF (see №3).
+6. License for GitHub: **MIT or Apache-2.0** — decide by M5 (dual is possible).
+7. Vanilla DOM vs Preact for the UI — decide based on the actual complexity of the screens (threshold:
+   > 500 lines of hand-written DOM code → take Preact 10).
+8. **`snmp2` vs 2-byte Counter32**: the crate may fail to parse `1E49`;
+   in M2 check `prtMarkerLifeCount` live, otherwise take pages from
+   `brInfoCounter #00` (correct 4 bytes).
+9. The semantics of `#63`/`#31`/`#6f` of the maintenance blob is **unknown** (`#6f` = 34 % ≠
+   40 %) — do not interpret, skip with a log.
+
+## 14. Acceptance
+
+- `cargo test` — offline unit tests: XML parsing on fixtures taken from the device
+  (capabilities/status), Supply/Counters mappings, parsing of lpstat output;
+  `tsc --noEmit` for the UI.
+- Live checklist `LIVE=1` (manually against the real device): GET capabilities/
+  status, POST scan-job at 300 dpi Platen (150 dpi is not supported), `lp` test
+  page, tray menu, notification at low toner.
+- Acceptance v1: from the app window in ≤ 3 clicks get a PDF from a scan; toner in the UI
+  matches the web panel ±1 %; after the printer is disconnected the UI stays alive
+  (offline badge), after it is switched on — recovers by itself; closed window → tray,
+  a second launch does not create a duplicate (single-instance).
