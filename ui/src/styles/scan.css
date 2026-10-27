@@ -136,17 +136,6 @@
   font-weight: 650;
 }
 
-.result-path {
-  display: block;
-  width: 100%;
-  padding: 8px 10px;
-  background: var(--surface-muted);
-  border-radius: 8px;
-  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
 @container content (max-width: 559px) {
   .fields {
     grid-template-columns: minmax(0, 1fr);

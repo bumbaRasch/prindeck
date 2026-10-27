@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/src/styles/shell.css" />
     <link rel="stylesheet" href="/src/styles/content.css" />
     <link rel="stylesheet" href="/src/styles/scan.css" />
+    <link rel="stylesheet" href="/src/styles/scan_result.css" />
     <link rel="stylesheet" href="/src/styles/overview.css" />
     <link rel="stylesheet" href="/src/styles/print.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -150,9 +151,17 @@
             </div>
           </form>
 
+          <section id="scan-progress" class="scan-progress" hidden>
+            <p id="pages-counter" class="scan-counter"></p>
+            <p id="scan-elapsed" class="scan-elapsed"></p>
+            <ul id="page-list" class="page-list" hidden></ul>
+          </section>
+
           <section id="result" class="result" hidden>
-            <h2 class="result-title">Файл готов</h2>
-            <code id="result-path" class="result-path"></code>
+            <h2 id="result-title" class="result-title">Файл готов</h2>
+            <p id="result-partial" class="result-partial" hidden></p>
+            <p id="result-warning" class="result-warning" hidden></p>
+            <ul id="result-files" class="result-files" hidden></ul>
             <button id="open-folder" class="button button--secondary" type="button">
               Открыть папку
             </button>

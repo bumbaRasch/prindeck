@@ -1,4 +1,3 @@
-import { PAGE_FORMS } from "./labels";
 import type {
   ColorMode,
   Connectivity,
@@ -24,6 +23,7 @@ export interface AppState {
   format: DocFormat | null;
   jobId: string | null;
   lastFinishedJob: string | null;
+  jobStartedAt: number | null;
   starting: boolean;
   canceling: boolean;
   phase: ScanPhase | null;
@@ -59,6 +59,7 @@ export function createState(): AppState {
     format: null,
     jobId: null,
     lastFinishedJob: null,
+    jobStartedAt: null,
     starting: false,
     canceling: false,
     phase: null,
@@ -104,18 +105,6 @@ export function connectivity(state: AppState): Connectivity {
   return status.polledAt === null && status.error === null
     ? "checking"
     : "offline";
-}
-
-export function pluralPages(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) {
-    return PAGE_FORMS.one;
-  }
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-    return PAGE_FORMS.few;
-  }
-  return PAGE_FORMS.many;
 }
 
 export function currentParams(state: AppState): ScanParams | null {

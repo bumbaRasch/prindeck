@@ -1,4 +1,4 @@
-import { cancelScan, errorText, openScanFolder, scanFailureKind, startScan } from "../api";
+import { cancelScan, errorText, scanFailureKind, startScan } from "../api";
 import {
   activeInput,
   colorOptions,
@@ -14,6 +14,7 @@ import { fillSelect, mustQuery } from "../dom";
 import { TEXT } from "../labels";
 import { currentParams, type AppState } from "../state";
 import { renderShell } from "../shell";
+import { initScanResult, renderScanResult } from "./scan_result";
 
 const els = {
   form: mustQuery<HTMLFormElement>("#scan-form"),
@@ -24,9 +25,6 @@ const els = {
   formatHint: mustQuery<HTMLParagraphElement>("#format-hint"),
   start: mustQuery<HTMLButtonElement>("#start"),
   cancel: mustQuery<HTMLButtonElement>("#cancel"),
-  result: mustQuery<HTMLElement>("#result"),
-  resultPath: mustQuery<HTMLElement>("#result-path"),
-  openFolder: mustQuery<HTMLButtonElement>("#open-folder"),
 };
 
 function render(state: AppState): void {
@@ -36,6 +34,7 @@ function render(state: AppState): void {
 
 export function renderScanScreen(state: AppState): void {
   normalizeSelections(state);
+  renderScanResult(state);
 
   const caps = state.caps;
   const input = caps === null ? null : activeInput(caps, state.source);
@@ -73,9 +72,6 @@ export function renderScanScreen(state: AppState): void {
   els.cancel.hidden = state.jobId === null;
   els.cancel.disabled = state.canceling;
   els.cancel.textContent = state.canceling ? TEXT.canceling : TEXT.cancel;
-
-  els.result.hidden = state.lastFiles.length === 0;
-  els.resultPath.textContent = state.lastFiles.join(", ");
 }
 
 async function handleStart(state: AppState): Promise<void> {
@@ -88,6 +84,7 @@ async function handleStart(state: AppState): Promise<void> {
   state.errorText = null;
   state.phase = null;
   state.pages = 0;
+  state.jobStartedAt = Date.now();
   state.lastFiles = [];
   state.lastPartial = false;
   state.lastWarning = null;
@@ -108,6 +105,7 @@ async function handleStart(state: AppState): Promise<void> {
     state.jobId = null;
     state.phase = null;
     state.pages = 0;
+    state.jobStartedAt = null;
   } finally {
     state.starting = false;
     render(state);
@@ -132,16 +130,9 @@ async function handleCancel(state: AppState): Promise<void> {
   }
 }
 
-async function handleOpenFolder(state: AppState): Promise<void> {
-  try {
-    await openScanFolder();
-  } catch (error) {
-    state.errorText = errorText(error);
-    render(state);
-  }
-}
-
 export function initScanScreen(getState: () => AppState): void {
+  initScanResult(getState);
+
   els.form.addEventListener("submit", (event) => {
     event.preventDefault();
     void handleStart(getState());
@@ -149,10 +140,6 @@ export function initScanScreen(getState: () => AppState): void {
 
   els.cancel.addEventListener("click", () => {
     void handleCancel(getState());
-  });
-
-  els.openFolder.addEventListener("click", () => {
-    void handleOpenFolder(getState());
   });
 
   els.source.addEventListener("change", () => {

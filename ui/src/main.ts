@@ -39,6 +39,7 @@ function finishJob(jobId: string): void {
   state.lastFinishedJob = jobId;
   state.jobId = null;
   state.canceling = false;
+  state.jobStartedAt = null;
 }
 
 function handleScanProgress(payload: ScanProgress): void {

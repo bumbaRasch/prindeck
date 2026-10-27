@@ -1,10 +1,9 @@
 import { mustQuery } from "./dom";
-import { TEXT } from "./labels";
+import { TEXT, pluralPages } from "./labels";
 import { currentScreen } from "./router";
 import {
   CONNECTIVITY_TONES,
   connectivity,
-  pluralPages,
   type AppState,
 } from "./state";
 import type { Tone } from "./types";

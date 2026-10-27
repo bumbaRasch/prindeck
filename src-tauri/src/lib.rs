@@ -50,6 +50,15 @@ pub fn run() {
             let host = app.state::<AppState>().config.device.host.clone();
             app.manage(status::StatusCache::new(host));
 
+            let scan_dir = app.state::<AppState>().config.scan_dir.clone();
+            if let Err(error) = app.asset_protocol_scope().allow_directory(&scan_dir, false) {
+                tracing::warn!(
+                    %error,
+                    dir = %scan_dir.display(),
+                    "failed to allow the scan directory for the asset protocol"
+                );
+            }
+
             let history = match history::default_path().and_then(|path| History::open(&path)) {
                 Ok(history) => Some(history),
                 Err(error) => {
