@@ -16,7 +16,7 @@
 - Source files under 200 lines, split by domain, never `utils`/`common`/`helpers`; no comments in code.
 - Code strings (errors, logs, tests) English; Russian UI copy only in `ui/index.html`, `ui/src/labels.ts` and `*_LABEL` constants.
 - New crates: `lopdf` (default-features = false, justification in the commit message) only after the spike confirms per-page delivery; `rusqlite` (bundled) and `tauri-plugin-dialog` are already approved in PRD §10 / the M1 plan.
-- Device: never start a scan or occupy the printer without the user's explicit confirmation in the session (AGENTS.md). SNMP GETs and CUPS commands on this machine are safe. Tasks 4 and 8 contain the only device actions and carry an explicit gate.
+- Device: never start a scan or occupy the printer without the user's explicit confirmation in the session (AGENTS.md). SNMP GETs and read-only CUPS queries (`lpstat`) are safe. Anything that creates a print job must either be user-gated or held (`-o job-hold-until=indefinite`). Tasks 3, 4 and 8 contain device actions and carry explicit gates.
 - CUPS subprocesses always run with `LC_ALL=C` and a 5 s timeout; `cancel` always receives an explicit job id.
 - The branch is `m1-scan`; commit prefix for this phase is `M2.5:`.
 - Window/UI rules per AGENTS.md: responsive at 640×480 and up, both themes, one primary action per screen.
@@ -42,16 +42,18 @@ Rust (`src-tauri/src/`):
 | `print/tests.rs` | parsing tests on the captured fixture |
 | `commands/print.rs` | `print_file`, `get_queue`, `cancel_print` IPC bodies |
 | `config/mod.rs` | `cups_queue` key (serde default `Brother_MFC_L2710DW_series`) |
-| `commands/scan_jobs.rs` | per-page fetch loop, `PagesOutcome`, pause rule |
+| `commands/scan_jobs.rs` | job orchestration (existing), calls into `scan_pages` |
+| `commands/scan_pages.rs` | per-page fetch loop, `PagesOutcome`, `next_delay` pause rule |
 | `pdf_merge.rs` | `merge_pdfs(&[Vec<u8>]) -> Result<Vec<u8>, MergeError>` |
-| `commands/scan.rs` | payload structs: `ScanDone {files, partial, warning}`, progress `pages` |
+| `commands/mod.rs` | payload structs: `ScanDone {files, partial, warning}`, progress `pages` (payloads live here today) |
 
 UI (`ui/src/`):
 
 | File | Responsibility |
 |---|---|
 | `screens/print.ts` | Print screen: dropzone/picker, copies+duplex, queue table, cancel |
-| `screens/scan.ts` | page counter, text page list, partial/warning result block |
+| `screens/scan.ts` | scan form and actions (existing) |
+| `screens/scan_result.ts` | page counter, text page list, partial/warning result block |
 | `shell.ts`, `router.ts`, `labels.ts`, `index.html` | third nav entry, sprite icon, Russian labels |
 | `api.ts`, `types.ts` | print IPC wrappers, updated scan payloads |
 
@@ -87,13 +89,15 @@ impl History {
     pub fn open(path: &std::path::Path) -> Result<History, HistoryError>;
     pub fn record(&self, snap: &Snapshot) -> Result<(), HistoryError>;
 }
+pub struct HistoryHandle(pub std::sync::Mutex<Option<History>>);   // Connection is !Sync
+pub fn try_record(handle: &HistoryHandle, snap: &Snapshot);       // swallows Err with warn!
 ```
 
 - Consumes: `DeviceStatus` from `status/mod.rs` (fields already exist from M2).
 
 - [ ] **Step 1: Write the failing tests**
 
-In `history/tests.rs`: `round_trip` — `History::open` on a temp path under `std::env::temp_dir()`, `record` a `Snapshot` with all fields, re-open, assert the row reads back field-for-field; `gaps_stay_gaps` — two records with distant timestamps, row count is 2; `record_failure_is_isolated` — a closed/invalid DB path returns `Err` and the caller-side helper (see Step 3) still returns `Ok(())`.
+In `history/tests.rs`: `round_trip` — `History::open` on a temp path under `std::env::temp_dir()`, `record` a `Snapshot` with all fields, re-open, assert the row reads back field-for-field; `gaps_stay_gaps` — two records with distant timestamps, row count is 2; `try_record_swallows_errors` — a `HistoryHandle(Mutex::new(None))` (open failed) plus a `try_record` call returns `()` without panicking.
 
 - [ ] **Step 2: Run to see them fail**
 
@@ -101,7 +105,7 @@ Run: `cargo test --workspace history` — expected: compile error, module missin
 
 - [ ] **Step 3: Implement `history.rs` and the poll hook**
 
-Schema v1: `snapshots(ts TEXT PRIMARY KEY, toner_pct INTEGER NULL, drum_pct INTEGER NULL, pages_total INTEGER NULL, duplex_pages INTEGER NULL, drum_pages_left INTEGER NULL)`, `PRAGMA user_version = 1` guard. `History::open` is called once in `lib.rs` setup with `dirs::data_dir()/prindeck/history.db` (created via `create_dir_all`); the handle is stored in Tauri managed state as `HistoryHandle(Option<History>)` — `None` on open failure after an `error!` log, polling runs on unchanged. In `status/poll.rs`, after a successful poll: read the handle from state, `record`, and on `Err` log `warn!` and continue — the poll result is returned unchanged.
+Schema v1: `snapshots(ts TEXT PRIMARY KEY, toner_pct INTEGER NULL, drum_pct INTEGER NULL, pages_total INTEGER NULL, duplex_pages INTEGER NULL, drum_pages_left INTEGER NULL)`, `PRAGMA user_version = 1` guard. `History::open` is called once in `lib.rs` setup with `dirs::data_dir()/prindeck/history.db` (created via `create_dir_all`); the handle is stored in Tauri managed state as `HistoryHandle(Mutex<Option<History>>)` — `None` on open failure after an `error!` log, polling runs unchanged. In `status/poll.rs`, after a successful poll: `try_record(&handle, &Snapshot::from_status(&status))` — an insert failure logs `warn!` and the poll result is returned unchanged.
 
 - [ ] **Step 4: Run the tests and the gate**
 
@@ -129,22 +133,23 @@ git commit -m "M2.5: silent history recording on every successful poll"
 pub enum Sides { OneSided, LongEdge, ShortEdge }
 impl Sides { pub fn as_lp_option(&self) -> &'static str }   // sides=...
 pub struct PrintOptions { pub copies: u32, pub sides: Sides }
-pub enum JobState { Pending, Held, Processing, Stopped }
-pub struct CupsJob { pub id: String, pub owner: String, pub size_kb: u64, pub state: JobState }
+pub struct CupsJob { pub id: String, pub owner: String, pub size_kb: u64 }
 pub fn print_file(queue: &str, path: &Path, opts: &PrintOptions) -> Result<String, PrintError>;  // "queue-N"
 pub fn queue_jobs(queue: &str) -> Result<Vec<CupsJob>, PrintError>;
 pub fn cancel(job_id: &str) -> Result<(), PrintError>;
 ```
 
-- Consumes: nothing from other tasks; `std::process::Command` with env `LC_ALL=C`, 5 s timeout via `wait_timeout`-free approach (spawn + `try_wait` loop or `tokio::process` — follow the existing `spawn_blocking` pattern of `snmp/client.rs`).
+`CupsJob` carries `Serialize` with `rename_all = "camelCase"` (IPC convention). Verified live 27.10.2026: `LC_ALL=C lpstat -W not-completed -o <queue>` prints exactly `id owner size date` — **no state token** (not even for a held job); all not-completed jobs render as «в ожидании», there is no state field to parse.
+
+- Consumes: nothing from other tasks; `std::process::Command` with env `LC_ALL=C` in `spawn_blocking` with a `try_wait` loop for the 5 s timeout — the same pattern as `snmp/client.rs`.
 
 - [ ] **Step 1: Capture the real fixture**
 
-Run `LC_ALL=C lpstat -W not-completed -o Brother_MFC_L2710DW_series` on this machine (safe, no device occupation; queue may be empty — then queue a job with `lp /etc/hostname` first and cancel it after capture). Save the exact bytes to `fixtures/print/lpstat-not-completed.txt`.
+Run `LC_ALL=C lpstat -W not-completed -o Brother_MFC_L2710DW_series` on this machine. If the queue is empty, create a **held** job first — `lp -o job-hold-until=indefinite -d Brother_MFC_L2710DW_series /etc/hostname` (verified: identical `lpstat` row, zero device contact) — then `cancel` it after capture. Save the exact bytes to `fixtures/print/lpstat-not-completed.txt`.
 
 - [ ] **Step 2: Write the failing parsing tests**
 
-`parses_fixture_rows` (id `Brother_MFC_L2710DW_series-N`, owner, size, state from the captured file); `non_matching_queue_is_dropped` (a line of a foreign queue never yields a `CupsJob`); `sides_option_strings` (`one-sided`, `two-sided-long-edge`, `two-sided-short-edge` — verbatim from the CUPS docs); `empty_output_yields_empty_vec`; `garbage_line_is_skipped_not_fatal`.
+`parses_fixture_rows` (id `Brother_MFC_L2710DW_series-N`, owner, size from the captured file); `non_matching_queue_is_dropped` (a line of a foreign queue never yields a `CupsJob`); `sides_option_strings` (`one-sided`, `two-sided-long-edge`, `two-sided-short-edge` — verbatim from the CUPS docs); `empty_output_yields_empty_vec`; `garbage_line_is_skipped_not_fatal`.
 
 - [ ] **Step 3: Run to see them fail**
 
@@ -152,7 +157,7 @@ Run: `cargo test --workspace print` — expected: compile error.
 
 - [ ] **Step 4: Implement `print/mod.rs` + `print/lp.rs`**
 
-`queue_jobs` runs `lpstat -W not-completed -o <queue>` (`-W` before `-o`), splits lines, keeps only rows whose id starts with `<queue>-`, maps the state token; unknown tokens → `JobState::Pending` + `warn!` log. `print_file` runs `lp -d <queue> -n <copies> -o sides=<..> <path>` and returns the job id token from the output line (`request id is <queue>-N ...`). `cancel` runs `cancel <job_id>` — never bare. All three set `LC_ALL=C`.
+`queue_jobs` runs `lpstat -W not-completed -o <queue>` (`-W` before `-o`), splits lines, keeps only rows whose id starts with `<queue>-`; the fields after the id token are `owner` and `size` (the date tail is ignored). `print_file` runs `lp -d <queue> -n <copies> -o sides=<..> <path>` and returns the job id token from the output line (`request id is <queue>-N ...`). `cancel` runs `cancel <job_id>` — never bare. All three set `LC_ALL=C`.
 
 - [ ] **Step 5: Add `cups_queue` to the config**
 
@@ -176,7 +181,7 @@ git commit -m "M2.5: CUPS print domain — lp/lpstat/cancel under LC_ALL=C"
 - Modify: `src-tauri/src/commands/mod.rs` (declare + re-export + `__cmd__*` lines), `src-tauri/src/lib.rs` (register), `ui/index.html`, `ui/src/{shell.ts,router.ts,labels.ts,api.ts,types.ts,styles.css}` or domain style split, `package.json` + `src-tauri/Cargo.toml` + capabilities (`tauri-plugin-dialog`), `ui/src/main.ts`
 
 **Interfaces:**
-- Produces: IPC `print_file(path: String, copies: u32, sides: String) -> Result<String, String>`, `get_queue() -> Result<Vec<CupsJob>, String>`, `cancel_print(jobId: String) -> Result<(), String>`; UI `initPrintScreen(getState)`, `renderPrintScreen(state)`, `Screen` gains `"print"`; `api.printFile/getQueue/cancelPrint/onQueueTick`.
+- Produces: IPC `print_file(path: String, copies: u32, sides: String) -> Result<String, String>`, `get_queue() -> Result<Vec<CupsJob>, String>`, `cancel_print(jobId: String) -> Result<(), String>`; UI `initPrintScreen(getState)`, `renderPrintScreen(state)`, `Screen` gains `"print"`; `api.printFile/getQueue/cancelPrint` (no queue event listener — the 5 s interval lives inside `screens/print.ts`).
 - Consumes: `print::{print_file, queue_jobs, cancel}` (Task 2), shell/router patterns (M2), `config.cups_queue`.
 
 - [ ] **Step 1: Rust IPC bodies**
@@ -185,15 +190,17 @@ git commit -m "M2.5: CUPS print domain — lp/lpstat/cancel under LC_ALL=C"
 
 - [ ] **Step 2: UI — nav, screen, labels**
 
-Third nav entry «Печать» (icon: Lucide `printer` in the sprite); screen: dropzone + «Выбрать файл…» (dialog plugin), copies stepper, duplex select («односторонняя / по длинному краю / по короткому краю»), primary «Печать», queue table (id, владелец, размер, состояние, «Отменить»), explicit «Очередь пуста» state.
+Third nav entry «Печать» (icon: Lucide `printer` in the sprite); screen: dropzone + «Выбрать файл…» (dialog plugin), copies stepper, duplex select («односторонняя / по длинному краю / по короткому краю»), primary «Печать», queue table (id, владелец, размер, «Отменить»; every row renders «в ожидании» — there is no state token in `lpstat -o` output), explicit «Очередь пуста» state.
 
 - [ ] **Step 3: Queue refresh only while visible**
 
 `setInterval` 5 s started when the screen becomes current, cleared on leave (router hook); manual refresh after `printFile`/`cancelPrint` resolves. Drag-drop file paths from the core `onDragDropEvent` (paths, not web `File`).
 
+**GATE — device action:** anything that sends paper needs the user's explicit go in this session.
+
 - [ ] **Step 4: Verify**
 
-Gate + `npm run check:line-count`; app at 900×680 and 640×480, both themes — the M2 visual-check subagent pattern; with the user's go (occupies the printer): send one real print with `two-sided-long-edge` (user checks the paper flips like a book), then queue a 3-copy job and cancel it from the UI, `lpstat` confirms removal.
+Gate + `npm run check:line-count`; app at 900×680 and 640×480, both themes — the M2 visual-check subagent pattern. **Then, with the user's go** (occupies the printer): send one real print with `two-sided-long-edge` (user checks the paper flips like a book), then queue a 3-copy job and cancel it from the UI, `lpstat` confirms removal.
 
 - [ ] **Step 5: Commit**
 
@@ -217,9 +224,11 @@ git commit -m "M2.5: queue-first Print screen with copies and duplex"
 
 - [ ] **Step 1: 2 sheets, PDF — the A/B question**
 
-`POST` + repeated `NextDocument` (with a 1 s pause): one response per sheet or one multi-page PDF? Save each response body to `fixtures/escl/adf/`; `pdfinfo` each file (pages, size). Record per-page timings.
+`POST` + repeated `NextDocument` (with a 1 s pause): one response per sheet or one multi-page PDF? Save each response body to `fixtures/escl/adf/`; `pdfinfo` each file (pages, size). Record per-page timings. Scrub device identifiers (serial/UUID) from anything committed — the M0 publication-hygiene rule (`docs/escl-l2710dw.md`, end of §REPORT).
 
 - [ ] **Step 2: 2 sheets, JPEG** — confirm per-page JPEGs and `Content-Location: doc-N`; save fixtures.
+
+- [ ] **Step 2b: 1 sheet, PDF** — the single-sheet edge: does the loop still need the terminating `NextDocument` → `404`?
 
 - [ ] **Step 3: No pause** — repeat Step 1 back-to-back without the gap; does `404`/`ScannerAdfEmpty` appear? Verdict for the pause rule.
 
@@ -241,7 +250,8 @@ git commit -m "M2.5: ADF spike — per-page delivery verdict, cancel, power-cycl
 ### Task 5: Per-page fetch loop and the extended scan IPC
 
 **Files:**
-- Modify: `src-tauri/src/commands/scan_jobs.rs` (loop + outcome), `src-tauri/src/commands/scan.rs` (payloads), `src-tauri/src/commands/scan_files.rs` (`-pN`/`-partial` naming), tests under `src-tauri/src/commands/tests/`
+- Create: `src-tauri/src/commands/scan_pages.rs`
+- Modify: `src-tauri/src/commands/scan_jobs.rs` (orchestration calls the loop), `src-tauri/src/commands/mod.rs` (payload structs), `src-tauri/src/commands/scan_files.rs` (`-pN`/`-partial` naming), tests under `src-tauri/src/commands/tests/`, `ui/src/types.ts` + `ui/src/main.ts` (TS mirror of the new payload shape — done here, not in Task 7, so every green gate reflects a working app; the rich UI comes in Task 7)
 
 **Interfaces:**
 - Produces:
@@ -256,11 +266,21 @@ fn next_delay(prev_request: Duration) -> Duration;   // min(1s, prev/2) per sane
 pub struct ScanDone { pub job_id: String, pub files: Vec<String>, pub partial: bool, pub warning: Option<String> }
 ```
 
-`scan-progress` gains `pages: u32`; terminal event choice: `Complete` → `scan-done {partial: false, warning: None}`; `Canceled`/`Failed` with ≥1 page → `scan-done {partial: true, warning: Some(...)}`; `Failed` with 0 pages → `scan-error`. Loops under outcome B terminate naturally (second `NextDocument` → `404`), the same code path serves both outcomes.
+Terminal-event table (complete, both outcomes — `pages` is received PDF/JPEG pages):
 
-- Consumes: `EsclClient::next_document` (200/404/410 semantics, M1), `next_delay` verdict from Task 4 (drop the pause only if §11 says it is unnecessary).
+| Outcome | Terminal event |
+|---|---|
+| `Complete` | `scan-done {partial: false, warning: None}` |
+| `Canceled`, ≥ 1 page | `scan-done {partial: true, warning: None}` |
+| `Canceled`, 0 pages | terminal `scan-progress {phase: "canceled"}` (existing M1 UX «отменено»); **no** `scan-error` — a user cancel is not an error |
+| `Failed`, ≥ 1 page | `scan-done {partial: true, warning: Some(msg)}` |
+| `Failed`, 0 pages | `scan-error {message}` |
 
-- [ ] **Step 1: Failing tests** — `next_delay_clamps` (8 s prev → 1 s; 1.2 s prev → 600 ms); `terminal_event_failed_with_pages_is_done_partial`; `terminal_event_failed_empty_is_error`; `canceled_keeps_pages`; `canceled_empty_is_error` (outcome B: cancel before any page arrived → `scan-error` with the plain-words label «задание отменено, документ не сохранён»); naming tests: JPEG stack → `-p1..-pN`, canceled PDF → `-partial.pdf`, collision suffix `-2`.
+`scan-progress` gains `pages: u32`, emitted on every received page. The loop is outcome-agnostic: under outcome B the second `NextDocument` → `404` ends it with one page.
+
+- Consumes: `EsclClient::next_document` (200/404/410 semantics, M1), `next_delay` verdict from Task 4 (drop the pause only if §11 says it is unnecessary on this unit).
+
+- [ ] **Step 1: Failing tests** — `next_delay_clamps` (8 s prev → 1 s; 1.2 s prev → 600 ms); `terminal_event_failed_with_pages_is_done_partial`; `terminal_event_failed_empty_is_error`; `terminal_event_canceled_with_pages_is_done_partial`; `terminal_event_canceled_empty_is_progress_canceled_only`; `canceled_keeps_pages`; naming tests: JPEG stack → `-p1..-pN`, canceled PDF → `-partial.pdf`, collision suffix `-2`.
 
 - [ ] **Step 2: Run to fail** — `cargo test --workspace commands` compile error.
 
@@ -304,10 +324,11 @@ git commit -m "M2.5: lopdf client-side merge of per-page ADF PDFs"
 ### Task 7: Scan screen — counter, page list, partial results, previews
 
 **Files:**
-- Modify: `ui/src/screens/scan.ts`, `ui/src/{api.ts,types.ts,labels.ts,state.ts}`, `ui/index.html`, `src-tauri/tauri.conf.json` + capabilities (asset protocol, scope: `scanDir`), `src-tauri/src/commands/caps.rs` (expose `scanDir` to the UI if not already)
+- Create: `ui/src/screens/scan_result.ts` (the new DOM block — `screens/scan.ts` is already at 185 lines)
+- Modify: `ui/src/screens/scan.ts`, `ui/src/{api.ts,labels.ts,state.ts}`, `ui/index.html`, `src-tauri/tauri.conf.json` + capabilities (asset protocol, scope: `scanDir`)
 
 **Interfaces:**
-- Consumes: `scan-progress {pages}`, `scan-done {files, partial, warning}` (Task 5), `convertFileSrc` from `@tauri-apps/api/core`.
+- Consumes: `scan-progress {pages}`, `scan-done {files, partial, warning}` (Task 5; the TS types already mirror it since Task 5), `convertFileSrc` from `@tauri-apps/api/core` (needs only the file path — no `caps.rs` change).
 
 - [ ] **Step 1: Types + labels** — `ScanDone`/progress types updated; Russian copy: «Получено страниц: N», «неполный: N страниц», warning line, «Открыть папку» (exists).
 
@@ -333,7 +354,9 @@ git commit -m "M2.5: scan screen page counter, partial results and JPEG previews
 
 - [ ] **Step 1: PRD/README updates** — roadmap row, event table, the lopdf exception in §10, ADF facts, README «ADF multi-sheet» section.
 
-- [ ] **Step 2: GATE — live acceptance (device).** With the user's explicit go: 3 sheets PDF → one file, `pdfinfo` pages 3, opens in GNOME Papers and Firefox; 3 sheets JPEG → 3 `-pN.jpg` with previews; cancel on sheet 2 → `…-partial.pdf`, device `Idle`, no temp files.
+- [ ] **Step 2: GATE — live acceptance (device).** With the user's explicit go: 3 sheets PDF → one file, `pdfinfo` reports `Pages: 3` and page size ≈ 602.64 × 830.16 pt (M0 reference), opens in GNOME Papers and Firefox; 3 sheets JPEG → 3 `-pN.jpg` with previews; cancel on sheet 2 → `…-partial.pdf`, device `Idle`, no temp files.
+
+- [ ] **Step 2b: History live check** — the DB exists at `~/.local/share/prindeck/history.db`, rows accumulate over one poll interval, and `PRAGMA integrity_check` is clean after killing and restarting the app.
 
 - [ ] **Step 3: Whole gate + line-count + `check:code-language` green; visual check both themes/sizes.**
 

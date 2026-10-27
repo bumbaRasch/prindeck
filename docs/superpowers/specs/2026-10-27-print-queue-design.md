@@ -20,8 +20,10 @@ click — sending a file is the secondary convenience.
 
 ## Goals
 
-- Active queue: list of not-completed jobs (id, name, owner, size, state) +
-  per-job «Отменить».
+- Active queue: list of not-completed jobs for the configured queue (id, owner,
+  size) + per-job «Отменить»; every job renders as «в ожидании» — verified live
+  27.10.2026: `LC_ALL=C lpstat -W not-completed -o <queue>` output carries no
+  state token at all.
 - Send a file (drag-drop or file picker) with the standard option pair:
   copies (`lp -n N`) and duplex (`-o sides=one-sided | two-sided-long-edge |
   two-sided-short-edge` — exactly the three values from the CUPS docs).
@@ -51,10 +53,13 @@ click — sending a file is the secondary convenience.
   (`cups_queue`, default `Brother_MFC_L2710DW_series` — PRD §3).
 - **Queue scope**: `lpstat -W not-completed -o <cups_queue>` — the list and the
   cancel actions cover only the configured queue; jobs of other queues never
-  appear in the jam-recovery list. `CupsJob` fields are `id`, `owner`, `size`,
-  `state` — plain `lpstat -o` output carries no document name; a real output
-  capture on this machine (cheap, does not occupy the device) becomes the
-  parsing fixture. *(my call, builder-check q3)*
+  appear in the jam-recovery list. `CupsJob` fields are `id`, `owner`, `size` —
+  plain `lpstat -o` output is `id owner size date` with no document name and no
+  state token (live-checked 27.10.2026); a real output capture on this machine
+  becomes the parsing fixture. If the queue is empty at capture time, create a
+  **held** job first (`lp -o job-hold-until=indefinite …`) — identical `lpstat`
+  row, zero device contact — then cancel it. *(my call, builder-check q3 + plan
+  review)*
 - **Queue validation is soft**: a missing/absent CUPS queue is not a startup
   `ConfigError` (CUPS may be down transiently); the first `print_file`/
   `get_queue` call surfaces the error in the UI («очередь CUPS не найдена»)
