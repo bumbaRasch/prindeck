@@ -1,3 +1,5 @@
+use std::error::Error;
+use std::fmt;
 use std::time::Duration;
 
 use snmp2::{Oid, SyncSession, Value};
@@ -22,6 +24,17 @@ pub enum SnmpError {
     Transport(String),
     Protocol(String),
 }
+
+impl fmt::Display for SnmpError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SnmpError::Transport(message) => write!(f, "snmp transport error: {message}"),
+            SnmpError::Protocol(message) => write!(f, "snmp protocol error: {message}"),
+        }
+    }
+}
+
+impl Error for SnmpError {}
 
 impl SnmpClient {
     pub fn new(host: &str, community: &str) -> SnmpClient {

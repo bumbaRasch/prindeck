@@ -14,6 +14,7 @@ mod caps;
 mod scan;
 mod scan_files;
 mod scan_jobs;
+mod status;
 
 pub const EVENT_PROGRESS: &str = "scan-progress";
 pub const EVENT_DONE: &str = "scan-done";
@@ -143,6 +144,7 @@ fn mentions_feeder(body: &str) -> bool {
 
 pub use caps::{get_capabilities, get_startup_error, open_scan_folder};
 pub use scan::{cancel_scan, start_scan};
+pub use status::{get_status, open_printer_panel, refresh_status};
 
 pub use caps::{
     __cmd__get_capabilities, __cmd__get_startup_error, __cmd__open_scan_folder,
@@ -152,6 +154,11 @@ pub use caps::{
 pub use scan::{
     __cmd__cancel_scan, __cmd__start_scan, __tauri_command_name_cancel_scan,
     __tauri_command_name_start_scan,
+};
+pub use status::{
+    __cmd__get_status, __cmd__open_printer_panel, __cmd__refresh_status,
+    __tauri_command_name_get_status, __tauri_command_name_open_printer_panel,
+    __tauri_command_name_refresh_status,
 };
 
 #[cfg(test)]

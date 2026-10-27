@@ -2,11 +2,12 @@ pub mod commands;
 pub mod config;
 pub mod escl;
 pub mod snmp;
+pub mod status;
 #[cfg(desktop)]
 pub mod tray;
 
 use commands::AppState;
-use tauri::WindowEvent;
+use tauri::{Manager, WindowEvent};
 
 fn init_tracing() {
     use tracing_subscriber::EnvFilter;
@@ -39,8 +40,10 @@ pub fn run() {
             if let Err(error) = tray::setup(app) {
                 tracing::error!(%error, "failed to create the tray icon");
             }
-            #[cfg(not(desktop))]
-            let _ = app;
+
+            let host = app.state::<AppState>().config.device.host.clone();
+            app.manage(status::StatusCache::new(host));
+            status::start_polling(app.handle().clone());
 
             Ok(())
         })
@@ -58,6 +61,9 @@ pub fn run() {
             commands::cancel_scan,
             commands::open_scan_folder,
             commands::get_startup_error,
+            commands::get_status,
+            commands::refresh_status,
+            commands::open_printer_panel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
