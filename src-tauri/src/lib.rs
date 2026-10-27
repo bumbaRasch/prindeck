@@ -95,6 +95,7 @@ pub fn run() {
             commands::get_startup_error,
             commands::get_config,
             commands::set_config,
+            commands::test_notification,
             commands::get_status,
             commands::refresh_status,
             commands::open_printer_panel,

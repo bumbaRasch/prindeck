@@ -7,6 +7,35 @@ export type DocFormat = "application/pdf" | "image/jpeg";
 
 export type Screen = "scan" | "overview" | "print" | "settings";
 
+export interface DeviceConfig {
+  host: string;
+}
+
+export interface SnmpConfig {
+  community: string;
+}
+
+export interface NotifyConfig {
+  enabled: boolean;
+  tonerPercent: number;
+  drumPercent: number;
+}
+
+export interface TonerConfig {
+  model: string | null;
+  yieldPages: number | null;
+}
+
+export interface Config {
+  device: DeviceConfig;
+  scanDir: string;
+  cupsQueue: string;
+  snmp: SnmpConfig;
+  pollSeconds: number;
+  notify: NotifyConfig;
+  toner: TonerConfig;
+}
+
 export type Sides = "one-sided" | "two-sided-long-edge" | "two-sided-short-edge";
 
 export interface CupsJob {

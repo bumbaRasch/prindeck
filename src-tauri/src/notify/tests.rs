@@ -1,4 +1,4 @@
-use super::measure_from_status;
+use super::{measure_from_status, test_notification_payload};
 use crate::status::DeviceStatus;
 
 const HOST: &str = "192.168.187.36";
@@ -16,6 +16,15 @@ fn status(ok: bool, toner: Option<u32>, drum: Option<u32>) -> DeviceStatus {
         polled_at: None,
         error: None,
     }
+}
+
+#[test]
+fn test_notification_payload_is_fixed() {
+    let (id, title, body) = test_notification_payload();
+
+    assert_eq!(id, super::NOTIFY_TEST_ID);
+    assert_eq!(title, super::NOTIFY_TEST_TITLE_LABEL.to_string());
+    assert_eq!(body, super::NOTIFY_TEST_BODY_LABEL.to_string());
 }
 
 #[test]

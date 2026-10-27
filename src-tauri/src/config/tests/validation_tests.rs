@@ -7,6 +7,44 @@ use crate::config::host::validate_host;
 use crate::config::{Config, ConfigError, DEFAULT_HOST};
 
 #[test]
+fn config_wire_keys_pin_the_typescript_mirror() {
+    let json = serde_json::to_value(sample()).expect("config serializes");
+
+    let root = json.as_object().expect("config is an object");
+    let keys: Vec<&str> = root.keys().map(|key| key.as_str()).collect();
+    assert_eq!(
+        keys,
+        [
+            "cupsQueue",
+            "device",
+            "notify",
+            "pollSeconds",
+            "scanDir",
+            "snmp",
+            "toner"
+        ],
+        "ui/src/types.ts mirrors these exact keys"
+    );
+
+    let object_keys = |key: &str| -> Vec<&str> {
+        json[key]
+            .as_object()
+            .unwrap_or_else(|| panic!("{key} is an object"))
+            .keys()
+            .map(|field| field.as_str())
+            .collect()
+    };
+
+    assert_eq!(object_keys("device"), ["host"]);
+    assert_eq!(object_keys("snmp"), ["community"]);
+    assert_eq!(
+        object_keys("notify"),
+        ["drumPercent", "enabled", "tonerPercent"]
+    );
+    assert_eq!(object_keys("toner"), ["model", "yieldPages"]);
+}
+
+#[test]
 fn json_round_trip() {
     let config = sample();
     let json = serde_json::to_string_pretty(&config).expect("config serializes");

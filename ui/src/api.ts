@@ -164,3 +164,15 @@ export function onNavigate(
 ): Promise<UnlistenFn> {
   return listen<string>("navigate", (event) => callback(event.payload));
 }
+
+export function getConfig(): Promise<Config> {
+  return invoke<Config>("get_config");
+}
+
+export function setConfig(config: Config): Promise<Config> {
+  return invoke<Config>("set_config", { config });
+}
+
+export function testNotification(): Promise<void> {
+  return invoke<void>("test_notification");
+}
