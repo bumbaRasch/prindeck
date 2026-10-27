@@ -68,6 +68,9 @@ function printStatusView(state: AppState): { text: string; tone: Tone } {
   if (state.printError !== null) {
     return { text: state.printError, tone: "error" };
   }
+  if (state.queueError !== null) {
+    return { text: state.queueError, tone: "error" };
+  }
   if (state.printSending) {
     return { text: TEXT.sendingPrint, tone: "busy" };
   }

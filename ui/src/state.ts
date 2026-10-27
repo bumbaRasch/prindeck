@@ -41,6 +41,7 @@ export interface AppState {
   queue: CupsJob[];
   queueLoading: boolean;
   queueLoaded: boolean;
+  queueError: string | null;
   cancelingJobId: string | null;
 }
 
@@ -73,6 +74,7 @@ export function createState(): AppState {
     queue: [],
     queueLoading: false,
     queueLoaded: false,
+    queueError: null,
     cancelingJobId: null,
   };
 }

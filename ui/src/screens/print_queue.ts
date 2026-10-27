@@ -50,7 +50,7 @@ function noteText(state: AppState): string {
   if (!state.queueLoaded && state.queueLoading) {
     return TEXT.queueLoading;
   }
-  if (state.queueLoaded && state.queue.length === 0 && state.printError === null) {
+  if (state.queueLoaded && state.queue.length === 0 && state.queueError === null) {
     return TEXT.queueEmpty;
   }
   return "";
@@ -122,8 +122,9 @@ export async function refreshQueue(): Promise<void> {
   try {
     state.queue = await getQueue();
     state.queueLoaded = true;
+    state.queueError = null;
   } catch (error) {
-    state.printError = errorText(error);
+    state.queueError = errorText(error);
   } finally {
     state.queueLoading = false;
     render(state);
