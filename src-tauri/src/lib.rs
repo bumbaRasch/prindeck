@@ -2,6 +2,7 @@ pub mod commands;
 pub mod config;
 pub mod escl;
 pub mod history;
+pub mod pdf_merge;
 pub mod print;
 pub mod snmp;
 pub mod status;

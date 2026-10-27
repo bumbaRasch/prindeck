@@ -23,6 +23,7 @@ quick-xml = "0.42"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "7"
 rusqlite = { version = "0.41", features = ["bundled"] }
+lopdf = { version = "0.46", default-features = false }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 snmp2 = "0.5"
