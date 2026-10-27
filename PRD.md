@@ -328,15 +328,18 @@ Commands (`#[tauri::command]`):
 | `get_capabilities` | — | `ScanCaps` | normalized scanner capabilities |
 | `start_scan` | `ScanParams` | `jobId` | POST ScanJobs, background task |
 | `cancel_scan` | `jobId` | `ok` | DELETE job on the device |
+| `open_scan_folder` | — | `ok` | open the scan folder (`scanDir`) via opener |
+| `get_startup_error` | — | `Option<String>` | startup/config resolution error, if any |
 | `print_file` | `path, PrintOptions` | `cupsJobId` | sending via `lp` (M3) |
 | `get_queue` | — | `[CupsJob]` | `lpstat -W not-completed` (M3) |
 | `cancel_print` | `cupsJobId` | `ok` | `cancel` (M3) |
 | `get_history` | `days` | `[Snapshot]` | from SQLite (M4) |
 | `open_printer_panel` | — | `ok` | web panel via opener |
 
-Shipped in M2: `get_capabilities`, `start_scan`, `cancel_scan`, `get_status`,
-`refresh_status`, `open_printer_panel`; the `status`, `scan-progress`,
-`scan-done`, `scan-error` events. The rest — planned with their milestones.
+Shipped in M2: `get_status`, `refresh_status`, `open_printer_panel`; the
+`status`, `scan-progress`, `scan-done`, `scan-error` events. M1 commands
+(`get_capabilities`, `start_scan`, `cancel_scan`, `get_startup_error`,
+`open_scan_folder`) remain. The rest — planned with their milestones.
 
 Events (`emit` → `listen` in the UI):
 
