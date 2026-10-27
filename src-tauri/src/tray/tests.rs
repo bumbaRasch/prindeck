@@ -61,6 +61,7 @@ fn status(ok: bool) -> DeviceStatus {
         host: "192.168.187.36".to_string(),
         toner_percent: None,
         drum_percent: None,
+        jam_count: None,
         pages_total: None,
         duplex_pages: None,
         drum_pages_left: None,

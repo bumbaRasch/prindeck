@@ -9,6 +9,7 @@ fn status(ok: bool, toner: Option<u32>, drum: Option<u32>) -> DeviceStatus {
         host: HOST.to_string(),
         toner_percent: toner,
         drum_percent: drum,
+        jam_count: None,
         pages_total: None,
         duplex_pages: None,
         drum_pages_left: None,
