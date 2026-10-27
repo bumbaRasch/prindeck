@@ -14,10 +14,15 @@ mod tests;
 pub use error::ConfigError;
 
 pub const DEFAULT_HOST: &str = "192.168.187.36";
+pub const DEFAULT_CUPS_QUEUE: &str = "Brother_MFC_L2710DW_series";
 pub const DEFAULT_SNMP_COMMUNITY: &str = "public";
 pub const DEFAULT_POLL_SECONDS: u64 = 300;
 pub const MIN_POLL_SECONDS: u64 = 60;
 pub const MAX_POLL_SECONDS: u64 = 3600;
+
+fn default_cups_queue() -> String {
+    DEFAULT_CUPS_QUEUE.to_string()
+}
 
 fn default_snmp() -> SnmpConfig {
     SnmpConfig {
@@ -75,6 +80,8 @@ where
 pub struct Config {
     pub device: DeviceConfig,
     pub scan_dir: PathBuf,
+    #[serde(default = "default_cups_queue")]
+    pub cups_queue: String,
     #[serde(default = "default_snmp")]
     pub snmp: SnmpConfig,
     #[serde(
@@ -116,6 +123,7 @@ impl Config {
                 host: DEFAULT_HOST.to_string(),
             },
             scan_dir: documents.join("scans"),
+            cups_queue: DEFAULT_CUPS_QUEUE.to_string(),
             snmp: default_snmp(),
             poll_seconds: DEFAULT_POLL_SECONDS,
         }
@@ -155,6 +163,12 @@ impl Config {
 
     pub fn validate(&self) -> Result<(), ConfigError> {
         host::validate_host(&self.device.host)?;
+
+        if self.cups_queue.trim().is_empty() {
+            return Err(ConfigError::InvalidCupsQueue(
+                "the CUPS queue name is not set".to_string(),
+            ));
+        }
 
         if self.scan_dir.as_os_str().is_empty() {
             return Err(ConfigError::InvalidScanDir(

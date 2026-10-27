@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use super::sample;
 use crate::config::host::validate_host;
 use crate::config::{
-    Config, ConfigError, DEFAULT_HOST, DEFAULT_POLL_SECONDS, DEFAULT_SNMP_COMMUNITY, DeviceConfig,
-    SnmpConfig,
+    Config, ConfigError, DEFAULT_CUPS_QUEUE, DEFAULT_HOST, DEFAULT_POLL_SECONDS,
+    DEFAULT_SNMP_COMMUNITY, DeviceConfig, SnmpConfig,
 };
 
 #[test]
@@ -76,6 +76,14 @@ fn empty_scan_dir_is_an_error() {
 }
 
 #[test]
+fn empty_cups_queue_is_an_error() {
+    let json = r#"{"device":{"host":"192.168.187.36"},"scanDir":"/tmp/scans","cupsQueue":""}"#;
+    let error = Config::from_json_str(json).expect_err("empty cups queue must fail");
+
+    assert!(matches!(error, ConfigError::InvalidCupsQueue(_)));
+}
+
+#[test]
 fn invalid_host_is_still_a_hard_error() {
     let json = r#"{"device":{"host":"bad host"},"scanDir":"/tmp/scans"}"#;
 
@@ -110,6 +118,7 @@ fn base_url_keeps_port() {
             host: "192.168.187.36:8080".to_string(),
         },
         scan_dir: PathBuf::from("/tmp/scans"),
+        cups_queue: DEFAULT_CUPS_QUEUE.to_string(),
         snmp: SnmpConfig {
             community: DEFAULT_SNMP_COMMUNITY.to_string(),
         },

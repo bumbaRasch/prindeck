@@ -4,7 +4,8 @@ mod validation_tests;
 use std::path::PathBuf;
 
 use super::{
-    Config, DEFAULT_HOST, DEFAULT_POLL_SECONDS, DEFAULT_SNMP_COMMUNITY, DeviceConfig, SnmpConfig,
+    Config, DEFAULT_CUPS_QUEUE, DEFAULT_HOST, DEFAULT_POLL_SECONDS, DEFAULT_SNMP_COMMUNITY,
+    DeviceConfig, SnmpConfig,
 };
 
 fn sample() -> Config {
@@ -13,6 +14,7 @@ fn sample() -> Config {
             host: DEFAULT_HOST.to_string(),
         },
         scan_dir: PathBuf::from("/home/user/Documents/scans"),
+        cups_queue: DEFAULT_CUPS_QUEUE.to_string(),
         snmp: SnmpConfig {
             community: DEFAULT_SNMP_COMMUNITY.to_string(),
         },

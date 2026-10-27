@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::sample;
-use crate::config::{Config, DEFAULT_HOST, DEFAULT_POLL_SECONDS, DEFAULT_SNMP_COMMUNITY};
+use crate::config::{
+    Config, DEFAULT_CUPS_QUEUE, DEFAULT_HOST, DEFAULT_POLL_SECONDS, DEFAULT_SNMP_COMMUNITY,
+};
 
 #[test]
 fn defaults_use_documents_dir() {
@@ -65,6 +67,7 @@ fn missing_new_keys_use_defaults() {
 
     assert_eq!(config.snmp.community, DEFAULT_SNMP_COMMUNITY);
     assert_eq!(config.poll_seconds, DEFAULT_POLL_SECONDS);
+    assert_eq!(config.cups_queue, DEFAULT_CUPS_QUEUE);
 }
 
 #[test]

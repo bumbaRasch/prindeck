@@ -6,6 +6,7 @@ pub enum ConfigError {
     Io(io::Error),
     Serde(serde_json::Error),
     InvalidHost(String),
+    InvalidCupsQueue(String),
     InvalidScanDir(String),
     NoConfigDir,
     NoHomeDir,
@@ -18,6 +19,9 @@ impl fmt::Display for ConfigError {
             ConfigError::Serde(error) => write!(f, "config parse error: {error}"),
             ConfigError::InvalidHost(message) => {
                 write!(f, "invalid device address: {message}")
+            }
+            ConfigError::InvalidCupsQueue(message) => {
+                write!(f, "invalid CUPS queue: {message}")
             }
             ConfigError::InvalidScanDir(message) => {
                 write!(f, "invalid scan folder: {message}")
