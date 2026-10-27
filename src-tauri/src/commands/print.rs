@@ -1,9 +1,10 @@
 use std::io;
 use std::path::PathBuf;
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use super::AppState;
+use super::activity::{self, ACTIVITY_PRINTING};
 use crate::print::{self as cups, CupsJob, PrintError, PrintOptions, Sides};
 
 #[cfg(test)]
@@ -91,6 +92,7 @@ async fn run_cups<T: Send + 'static>(
 
 #[tauri::command]
 pub async fn print_file(
+    app: AppHandle,
     state: State<'_, AppState>,
     path: String,
     copies: u32,
@@ -103,7 +105,10 @@ pub async fn print_file(
     let path = PathBuf::from(path);
     let options = PrintOptions { copies, sides };
 
-    run_cups(move || cups::print_file(&queue, &path, &options)).await
+    activity::set(&app, ACTIVITY_PRINTING);
+    let submitted = run_cups(move || cups::print_file(&queue, &path, &options)).await;
+    activity::clear(&app, ACTIVITY_PRINTING);
+    submitted
 }
 
 #[tauri::command]

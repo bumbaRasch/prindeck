@@ -7,7 +7,9 @@ use tauri::{AppHandle, Manager};
 
 use super::scan_files::write_pages;
 use super::scan_pages::{PagesOutcome, fetch_pages};
-use super::{AppState, ScanFailure, ScanPhase, emit_done, emit_error, emit_progress, user_message};
+use super::{
+    AppState, ScanFailure, ScanPhase, activity, emit_done, emit_error, emit_progress, user_message,
+};
 use crate::escl::{DocFormat, EsclClient};
 
 #[derive(Debug)]
@@ -32,6 +34,7 @@ pub(super) async fn run_scan(
     format: DocFormat,
     document_timeout: Duration,
 ) {
+    activity::set(&app, activity::ACTIVITY_SCANNING);
     emit_progress(&app, &job_id, ScanPhase::Scanning, 0);
 
     let outcome = fetch_pages(&client, &job, format, document_timeout, |pages| {
@@ -61,6 +64,7 @@ pub(super) async fn run_scan(
     }
 
     forget_job(&app, &job_id);
+    activity::clear(&app, activity::ACTIVITY_SCANNING);
 }
 
 pub(super) async fn finish_scan(

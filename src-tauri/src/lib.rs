@@ -49,6 +49,8 @@ pub fn run() {
 
             let config = app.state::<AppState>().config.get();
             app.manage(status::StatusCache::new(config.device.host.clone()));
+            #[cfg(desktop)]
+            tray::refresh(app.handle());
 
             if let Err(error) = app
                 .asset_protocol_scope()

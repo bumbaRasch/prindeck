@@ -144,3 +144,9 @@ export function onStatus(
 ): Promise<UnlistenFn> {
   return listen<DeviceStatus>("status", (event) => callback(event.payload));
 }
+
+export function onNavigate(
+  callback: (screen: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>("navigate", (event) => callback(event.payload));
+}
