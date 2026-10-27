@@ -39,8 +39,8 @@ export const PAGE_FORMS = {
 };
 
 export const TEXT = {
-  requestFailed: "request to the device failed",
-  deviceUnavailable: "device unavailable — check the power and the network",
+  requestFailed: "не удалось обратиться к устройству",
+  deviceUnavailable: "устройство недоступно — проверьте питание и сеть",
   creatingJob: "создаём задание…",
   checkingDevice: "проверяем устройство…",
   jobCreated: "задание создано…",

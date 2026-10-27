@@ -140,10 +140,9 @@ fn forget_job(app: &AppHandle, job_id: &str) {
         return;
     };
 
-    match state.jobs.lock() {
-        Ok(mut jobs) => {
-            jobs.remove(job_id);
-        }
-        Err(error) => tracing::error!(%error, "failed to update the job registry"),
-    }
+    let mut jobs = state
+        .jobs
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    jobs.remove(job_id);
 }

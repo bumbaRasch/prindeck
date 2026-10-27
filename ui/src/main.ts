@@ -101,7 +101,8 @@ function handleStatus(payload: DeviceStatus): void {
 async function loadStatus(): Promise<void> {
   try {
     state.status = await getStatus();
-  } catch {
+  } catch (error) {
+    console.warn("failed to load the device status", error);
   }
   renderShell(state);
   renderOverviewScreen(state);
@@ -115,7 +116,8 @@ async function refreshStatusNow(): Promise<void> {
   render();
   try {
     state.status = await refreshStatus();
-  } catch {
+  } catch (error) {
+    console.warn("failed to refresh the device status", error);
   } finally {
     state.refreshingStatus = false;
     render();
@@ -145,7 +147,8 @@ async function registerListeners(): Promise<void> {
     unlisteners.push(await onScanDone(handleScanDone));
     unlisteners.push(await onScanError(handleScanError));
     unlisteners.push(await onStatus(handleStatus));
-  } catch {
+  } catch (error) {
+    console.warn("failed to register the event listeners", error);
   }
 }
 
