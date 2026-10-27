@@ -56,4 +56,19 @@ to the **Muse Spark 1.3 Contributor** model
   Russian until the i18n work — don't translate them. When i18n lands, the UI
   language follows the system locale and falls back to English for unsupported
   locales.
+- Nothing is done from memory when a lookup is cheap. For library, framework,
+  SDK, CLI or API questions use the `context7` MCP (`resolve-library-id`, then
+  `query-docs`) and follow the version actually pinned in the project. For
+  "how do people do this today", comparisons and current practice use the
+  `searxng` MCP. Say which source the answer came from when it matters.
+- The same applies to subagents: a fresh subagent inherits no memory of this
+  conversation, so pass the lookup requirement into the task you hand over.
+- Build UI full responsive: every screen stays usable at every window size the
+  app allows, in both themes. No fixed pixel layout that clips, overlaps or
+  hides controls; prefer fluid grids, container queries and wrapping, and
+  check the smallest and the largest window before calling the work done.
+- Design for the user first: one obvious primary action per screen, the state
+  always visible, no dead ends, no placeholder controls. When something is not
+  possible, say it in the interface instead of failing silently or greying
+  out a control without a reason.
 - Commit step by step, with the milestone as the message prefix (`M1: ...`).
