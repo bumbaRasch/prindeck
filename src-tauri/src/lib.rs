@@ -1,12 +1,16 @@
 pub mod commands;
 pub mod config;
 pub mod escl;
+pub mod history;
 pub mod snmp;
 pub mod status;
 #[cfg(desktop)]
 pub mod tray;
 
+use std::sync::Mutex;
+
 use commands::AppState;
+use history::{History, HistoryHandle};
 use tauri::{Manager, WindowEvent};
 
 fn init_tracing() {
@@ -43,6 +47,16 @@ pub fn run() {
 
             let host = app.state::<AppState>().config.device.host.clone();
             app.manage(status::StatusCache::new(host));
+
+            let history = match history::default_path().and_then(|path| History::open(&path)) {
+                Ok(history) => Some(history),
+                Err(error) => {
+                    tracing::error!(%error, "failed to open the history database");
+                    None
+                }
+            };
+            app.manage(HistoryHandle(Mutex::new(history)));
+
             status::start_polling(app.handle().clone());
 
             Ok(())

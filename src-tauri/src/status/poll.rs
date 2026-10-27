@@ -4,6 +4,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use super::{DeviceStatus, EVENT_STATUS, StatusCache};
 use crate::commands::AppState;
+use crate::history::{HistoryHandle, Snapshot, try_record};
 use crate::snmp::SnmpClient;
 
 const RETRY_DELAY: Duration = Duration::from_secs(2);
@@ -50,6 +51,11 @@ pub async fn poll_now(app: AppHandle) -> DeviceStatus {
     }
 
     let snapshot = cache.snapshot();
+    if snapshot.ok
+        && let Some(handle) = app.try_state::<HistoryHandle>()
+    {
+        try_record(&handle, &Snapshot::from_status(&snapshot));
+    }
     emit_status(&app, &snapshot);
     snapshot
 }
