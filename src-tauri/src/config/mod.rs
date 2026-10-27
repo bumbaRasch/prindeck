@@ -33,6 +33,43 @@ fn default_community() -> String {
     DEFAULT_SNMP_COMMUNITY.to_string()
 }
 
+fn deserialize_poll_seconds<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = serde_json::Value::deserialize(deserializer)?;
+    let seconds = raw.as_u64();
+
+    match seconds {
+        Some(value) => Ok(value),
+        None => {
+            tracing::warn!(
+                value = %raw,
+                "pollSeconds must be a whole number of seconds, using the default"
+            );
+            Ok(DEFAULT_POLL_SECONDS)
+        }
+    }
+}
+
+fn deserialize_community<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = serde_json::Value::deserialize(deserializer)?;
+
+    match raw {
+        serde_json::Value::String(text) => Ok(text),
+        other => {
+            tracing::warn!(
+                value = %other,
+                "snmp.community must be a string, using the default"
+            );
+            Ok(DEFAULT_SNMP_COMMUNITY.to_string())
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
@@ -40,7 +77,10 @@ pub struct Config {
     pub scan_dir: PathBuf,
     #[serde(default = "default_snmp")]
     pub snmp: SnmpConfig,
-    #[serde(default = "default_poll_seconds")]
+    #[serde(
+        default = "default_poll_seconds",
+        deserialize_with = "deserialize_poll_seconds"
+    )]
     pub poll_seconds: u64,
 }
 
@@ -53,7 +93,10 @@ pub struct DeviceConfig {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SnmpConfig {
-    #[serde(default = "default_community")]
+    #[serde(
+        default = "default_community",
+        deserialize_with = "deserialize_community"
+    )]
     pub community: String,
 }
 
