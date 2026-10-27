@@ -4,6 +4,12 @@
   gap: 12px;
 }
 
+.overview-mount {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .overview-head {
   display: flex;
   flex-wrap: wrap;
@@ -111,6 +117,61 @@
 }
 
 .counter-name {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.state-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.state-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.state-row::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.75;
+}
+
+.state-row[data-tone="ok"] {
+  color: var(--ok);
+}
+
+.state-row[data-tone="warn"] {
+  color: var(--warn-text);
+}
+
+.metric-note {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.link-button {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.overview-hint {
   color: var(--muted);
   font-size: 13px;
 }

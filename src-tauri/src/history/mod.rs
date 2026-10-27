@@ -3,8 +3,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use chrono::Utc;
-use rusqlite::{Connection, params};
+use serde::Serialize;
+
+use chrono::{TimeDelta, Utc};
+use rusqlite::{Connection, Row, params};
 
 use crate::status::DeviceStatus;
 
@@ -17,7 +19,8 @@ pub use error::HistoryError;
 
 const SCHEMA_VERSION: i32 = 1;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub ts: String,
     pub toner_percent: Option<u32>,
@@ -118,21 +121,44 @@ impl History {
             .map_err(HistoryError::Sqlite)?;
 
         let rows = statement
-            .query_map([], |row| {
-                Ok(Snapshot {
-                    ts: row.get(0)?,
-                    toner_percent: row.get(1)?,
-                    drum_percent: row.get(2)?,
-                    pages_total: row.get(3)?,
-                    duplex_pages: row.get(4)?,
-                    drum_pages_left: row.get(5)?,
-                })
-            })
+            .query_map([], map_snapshot)
             .map_err(HistoryError::Sqlite)?;
 
         rows.collect::<Result<Vec<Snapshot>, _>>()
             .map_err(HistoryError::Sqlite)
     }
+
+    pub fn read_days(&self, days: u32) -> Result<Vec<Snapshot>, HistoryError> {
+        let cutoff =
+            (Utc::now() - TimeDelta::try_days(i64::from(days)).unwrap_or_default()).to_rfc3339();
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT ts, toner_pct, drum_pct, pages_total, duplex_pages, drum_pages_left
+                 FROM snapshots
+                 WHERE ts >= ?1
+                 ORDER BY ts",
+            )
+            .map_err(HistoryError::Sqlite)?;
+
+        let rows = statement
+            .query_map(params![cutoff], map_snapshot)
+            .map_err(HistoryError::Sqlite)?;
+
+        rows.collect::<Result<Vec<Snapshot>, _>>()
+            .map_err(HistoryError::Sqlite)
+    }
+}
+
+fn map_snapshot(row: &Row<'_>) -> rusqlite::Result<Snapshot> {
+    Ok(Snapshot {
+        ts: row.get(0)?,
+        toner_percent: row.get(1)?,
+        drum_percent: row.get(2)?,
+        pages_total: row.get(3)?,
+        duplex_pages: row.get(4)?,
+        drum_pages_left: row.get(5)?,
+    })
 }
 
 pub fn default_path() -> Result<PathBuf, HistoryError> {

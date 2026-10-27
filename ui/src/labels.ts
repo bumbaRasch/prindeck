@@ -11,6 +11,7 @@ export const SCREEN_TITLES: Record<Screen, string> = {
   scan: "Скан",
   overview: "Обзор",
   print: "Печать",
+  settings: "Настройки",
 };
 
 export const SIDES_LABELS: Record<Sides, string> = {
@@ -35,6 +36,20 @@ export const CHIP_LABELS: Record<Connectivity, string> = {
 
 export function updatedSecondsAgo(seconds: number): string {
   return `обновлено ${seconds} с назад`;
+}
+
+export function jamCountText(count: number): string {
+  return count === 0
+    ? "замятия: нет"
+    : `замятия: ${count} — проверьте тракт бумаги`;
+}
+
+export function drumPagesLeftText(pages: number): string {
+  return `барабан: осталось ≈${pages} стр.`;
+}
+
+export function tonerPagesLeftText(pages: number): string {
+  return `≈ ${pages} стр.`;
 }
 
 export function pluralPages(count: number): string {
@@ -109,6 +124,7 @@ export const TEXT = {
   retry: "Повторить",
   esclUnavailable: "сканирование недоступно",
   connectionTitle: "Подключение",
+  stateTitle: "Состояние",
   consumablesTitle: "Расходные материалы",
   countersTitle: "Счётчики",
   actionsTitle: "Действия",
@@ -117,8 +133,16 @@ export const TEXT = {
   pagesLabel: "Напечатано страниц",
   duplexLabel: "Дуплекс",
   drumLeftLabel: "Ресурс барабана",
+  tonerYieldHint: "укажите ресурс картриджа в настройках",
+  historyTitle: "История",
+  historyEmpty: "данных пока нет — копим",
+  historyTonerLine: "Тонер, %",
+  historyPagesLine: "Напечатано",
+  historyChartLabel: "график тонера и счётчика страниц за 90 дней",
   scanAction: "Скан",
   webPanelAction: "Веб-панель",
+  firmwareAction: "Обновление прошивки",
+  firmwareHint: "страница прошивки в веб-панели устройства",
   chooseFile: "Выбрать файл…",
   dropzoneTitle: "Перетащите файл для печати",
   dropzoneHint: "PDF, изображение или другой документ",

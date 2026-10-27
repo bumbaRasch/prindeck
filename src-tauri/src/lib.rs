@@ -98,6 +98,8 @@ pub fn run() {
             commands::get_status,
             commands::refresh_status,
             commands::open_printer_panel,
+            commands::open_firmware_page,
+            commands::get_history,
             commands::print_file,
             commands::get_queue,
             commands::cancel_print,

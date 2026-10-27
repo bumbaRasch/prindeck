@@ -5,6 +5,7 @@ use super::AppState;
 use crate::status::{self, DeviceStatus};
 
 const PANEL_STATUS_PATH: &str = "/general/status.html";
+const FIRMWARE_PATH: &str = "/admin/firmwareupdate.html";
 
 fn open_device_page(app: &AppHandle, path: &str) -> Result<(), String> {
     let host = app.state::<AppState>().config.get().device.host;
@@ -36,6 +37,11 @@ pub async fn refresh_status(app: AppHandle) -> Result<DeviceStatus, String> {
 #[tauri::command]
 pub fn open_printer_panel(app: AppHandle) -> Result<(), String> {
     open_device_page(&app, "/")
+}
+
+#[tauri::command]
+pub fn open_firmware_page(app: AppHandle) -> Result<(), String> {
+    open_device_page(&app, FIRMWARE_PATH)
 }
 
 pub fn open_status_page(app: &AppHandle) -> Result<(), String> {

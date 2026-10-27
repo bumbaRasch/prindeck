@@ -2,8 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { TEXT } from "./labels";
 import type {
+  Config,
   CupsJob,
   DeviceStatus,
+  HistorySnapshot,
   ScanCaps,
   ScanDone,
   ScanError,
@@ -121,6 +123,18 @@ export function refreshStatus(): Promise<DeviceStatus> {
 
 export function openPrinterPanel(): Promise<void> {
   return invoke<void>("open_printer_panel");
+}
+
+export function openFirmwarePage(): Promise<void> {
+  return invoke<void>("open_firmware_page");
+}
+
+export function getConfig(): Promise<Config> {
+  return invoke<Config>("get_config");
+}
+
+export function getHistory(days: number): Promise<HistorySnapshot[]> {
+  return invoke<HistorySnapshot[]>("get_history", { days });
 }
 
 export function printFile(

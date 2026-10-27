@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/src/styles/scan.css" />
     <link rel="stylesheet" href="/src/styles/scan_result.css" />
     <link rel="stylesheet" href="/src/styles/overview.css" />
+    <link rel="stylesheet" href="/src/styles/overview_chart.css" />
     <link rel="stylesheet" href="/src/styles/print.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>prindeck — скан</title>
@@ -168,7 +169,12 @@
           </section>
         </section>
 
-        <section data-screen="overview" class="screen" hidden></section>
+        <section data-screen="overview" class="screen" hidden>
+          <div id="overview-connection-mount" class="overview-mount"></div>
+          <div id="overview-supplies-mount" class="overview-mount"></div>
+          <div id="overview-chart-mount" class="overview-mount"></div>
+          <div id="overview-actions-mount" class="overview-mount"></div>
+        </section>
 
         <section data-screen="print" class="screen" hidden>
           <div id="print-form-mount"></div>

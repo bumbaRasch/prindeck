@@ -5,7 +5,7 @@ export type ColorMode = "BlackAndWhite1" | "Grayscale8" | "RGB24";
 
 export type DocFormat = "application/pdf" | "image/jpeg";
 
-export type Screen = "scan" | "overview" | "print";
+export type Screen = "scan" | "overview" | "print" | "settings";
 
 export type Sides = "one-sided" | "two-sided-long-edge" | "two-sided-short-edge";
 
@@ -27,8 +27,47 @@ export interface DeviceStatus {
   pagesTotal: number | null;
   duplexPages: number | null;
   drumPagesLeft: number | null;
+  jamCount: number | null;
   polledAt: string | null;
   error: string | null;
+}
+
+export interface HistorySnapshot {
+  ts: string;
+  tonerPercent: number | null;
+  drumPercent: number | null;
+  pagesTotal: number | null;
+  duplexPages: number | null;
+  drumPagesLeft: number | null;
+}
+
+export interface DeviceConfig {
+  host: string;
+}
+
+export interface SnmpConfig {
+  community: string;
+}
+
+export interface NotifyConfig {
+  enabled: boolean;
+  tonerPercent: number;
+  drumPercent: number;
+}
+
+export interface TonerConfig {
+  model: string | null;
+  yieldPages: number | null;
+}
+
+export interface Config {
+  device: DeviceConfig;
+  scanDir: string;
+  cupsQueue: string;
+  snmp: SnmpConfig;
+  pollSeconds: number;
+  notify: NotifyConfig;
+  toner: TonerConfig;
 }
 
 export interface ScanParams {

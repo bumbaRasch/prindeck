@@ -13,6 +13,7 @@ use caps::resolve_state;
 
 mod activity;
 mod caps;
+mod history;
 mod print;
 mod scan;
 mod scan_errors;
@@ -155,17 +156,21 @@ fn emit_error(app: &AppHandle, job_id: &str, failure: ScanFailure) {
 
 pub use activity::{ACTIVITY_IDLE, ACTIVITY_PRINTING, ACTIVITY_SCANNING};
 pub use caps::{get_capabilities, get_startup_error, open_scan_folder};
+pub use history::get_history;
 pub use print::{cancel_print, get_queue, print_file};
 pub use scan::{cancel_scan, start_scan};
 pub use scan_errors::{ScanErrorKind, ScanFailure, user_message};
 pub use settings::{get_config, set_config};
-pub use status::{get_status, open_printer_panel, open_status_page, refresh_status};
+pub use status::{
+    get_status, open_firmware_page, open_printer_panel, open_status_page, refresh_status,
+};
 
 pub use caps::{
     __cmd__get_capabilities, __cmd__get_startup_error, __cmd__open_scan_folder,
     __tauri_command_name_get_capabilities, __tauri_command_name_get_startup_error,
     __tauri_command_name_open_scan_folder,
 };
+pub use history::{__cmd__get_history, __tauri_command_name_get_history};
 pub use print::{
     __cmd__cancel_print, __cmd__get_queue, __cmd__print_file, __tauri_command_name_cancel_print,
     __tauri_command_name_get_queue, __tauri_command_name_print_file,
@@ -179,9 +184,9 @@ pub use settings::{
     __tauri_command_name_set_config,
 };
 pub use status::{
-    __cmd__get_status, __cmd__open_printer_panel, __cmd__refresh_status,
-    __tauri_command_name_get_status, __tauri_command_name_open_printer_panel,
-    __tauri_command_name_refresh_status,
+    __cmd__get_status, __cmd__open_firmware_page, __cmd__open_printer_panel, __cmd__refresh_status,
+    __tauri_command_name_get_status, __tauri_command_name_open_firmware_page,
+    __tauri_command_name_open_printer_panel, __tauri_command_name_refresh_status,
 };
 
 #[cfg(test)]
