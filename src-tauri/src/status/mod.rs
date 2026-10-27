@@ -13,8 +13,6 @@ use crate::snmp::SnmpCounters;
 
 pub const EVENT_STATUS: &str = "status";
 
-const LOCK_POISONED: &str = "internal error: the status cache is locked after a panic";
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeviceStatus {
@@ -80,7 +78,9 @@ impl StatusCache {
     }
 
     fn lock(&self) -> MutexGuard<'_, DeviceStatus> {
-        self.status.lock().expect(LOCK_POISONED)
+        self.status
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
