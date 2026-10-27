@@ -1,17 +1,12 @@
-use super::*;
+use std::fs;
+use std::path::PathBuf;
 
-fn sample() -> Config {
-    Config {
-        device: DeviceConfig {
-            host: DEFAULT_HOST.to_string(),
-        },
-        scan_dir: PathBuf::from("/home/user/Documents/scans"),
-        snmp: SnmpConfig {
-            community: DEFAULT_SNMP_COMMUNITY.to_string(),
-        },
-        poll_seconds: DEFAULT_POLL_SECONDS,
-    }
-}
+use super::sample;
+use crate::config::host::validate_host;
+use crate::config::{
+    Config, ConfigError, DEFAULT_HOST, DEFAULT_POLL_SECONDS, DEFAULT_SNMP_COMMUNITY, DeviceConfig,
+    SnmpConfig,
+};
 
 #[test]
 fn json_round_trip() {
@@ -60,7 +55,7 @@ fn host_with_scheme_or_slash_is_an_error() {
         "user@192.168.1.1",
     ] {
         assert!(
-            matches!(host::validate_host(host), Err(ConfigError::InvalidHost(_))),
+            matches!(validate_host(host), Err(ConfigError::InvalidHost(_))),
             "host {host} must be rejected"
         );
     }
@@ -81,21 +76,23 @@ fn empty_scan_dir_is_an_error() {
 }
 
 #[test]
-fn defaults_use_documents_dir() {
-    let config = Config::defaults_for(
-        Path::new("/home/user"),
-        Some(Path::new("/home/user/Documents")),
-    );
+fn invalid_host_is_still_a_hard_error() {
+    let json = r#"{"device":{"host":"bad host"},"scanDir":"/tmp/scans"}"#;
 
-    assert_eq!(config.device.host, DEFAULT_HOST);
-    assert_eq!(config.scan_dir, PathBuf::from("/home/user/Documents/scans"));
+    assert!(matches!(
+        Config::from_json_str(json),
+        Err(ConfigError::InvalidHost(_))
+    ));
 }
 
 #[test]
-fn defaults_fall_back_to_home_documents() {
-    let config = Config::defaults_for(Path::new("/home/user"), None);
+fn explicit_empty_community_stays_empty() {
+    let json =
+        r#"{"device":{"host":"192.168.187.36"},"scanDir":"/tmp/scans","snmp":{"community":""}}"#;
+    let config = Config::from_json_str(json).expect("explicit empty community parses");
 
-    assert_eq!(config.scan_dir, PathBuf::from("/home/user/Documents/scans"));
+    assert_eq!(config.snmp.community, "");
+    assert_eq!(config.snmp_community(), "");
 }
 
 #[test]
@@ -153,47 +150,4 @@ fn load_or_create_reads_existing_file_and_creates_scan_dir() {
     assert!(scan_dir.is_dir(), "scan dir must be created");
 
     let _ = fs::remove_dir_all(&root);
-}
-
-#[test]
-fn poll_seconds_default_is_300() {
-    let config = Config::defaults_for(Path::new("/home/user"), None);
-
-    assert_eq!(config.poll_seconds, DEFAULT_POLL_SECONDS);
-    assert_eq!(config.poll_interval(), Duration::from_secs(300));
-}
-
-#[test]
-fn poll_seconds_below_minimum_is_clamped() {
-    let mut config = sample();
-    config.poll_seconds = 5;
-
-    assert_eq!(config.poll_interval(), Duration::from_secs(60));
-}
-
-#[test]
-fn poll_seconds_above_maximum_is_clamped() {
-    let mut config = sample();
-    config.poll_seconds = 999_999;
-
-    assert_eq!(config.poll_interval(), Duration::from_secs(3600));
-}
-
-#[test]
-fn missing_new_keys_use_defaults() {
-    let json = r#"{"device":{"host":"192.168.187.36"},"scanDir":"/tmp/scans"}"#;
-    let config = Config::from_json_str(json).expect("missing keys use defaults");
-
-    assert_eq!(config.snmp.community, DEFAULT_SNMP_COMMUNITY);
-    assert_eq!(config.poll_seconds, DEFAULT_POLL_SECONDS);
-}
-
-#[test]
-fn invalid_host_is_still_a_hard_error() {
-    let json = r#"{"device":{"host":"bad host"},"scanDir":"/tmp/scans"}"#;
-
-    assert!(matches!(
-        Config::from_json_str(json),
-        Err(ConfigError::InvalidHost(_))
-    ));
 }
