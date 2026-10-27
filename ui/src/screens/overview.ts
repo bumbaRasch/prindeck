@@ -1,5 +1,4 @@
 import { errorText, openPrinterPanel } from "../api";
-import { reloadCapabilities } from "../caps";
 import { mustQuery } from "../dom";
 import { CHIP_LABELS, TEXT, updatedSecondsAgo } from "../labels";
 import { setScreen } from "../router";
@@ -148,16 +147,6 @@ export function renderOverviewScreen(state: AppState): void {
   els.refresh.disabled = state.refreshingStatus;
 }
 
-async function handleEsclRetry(state: AppState): Promise<void> {
-  state.capsLoading = true;
-  state.capsError = null;
-  renderShell(state);
-  renderOverviewScreen(state);
-  await reloadCapabilities(state);
-  renderShell(state);
-  renderOverviewScreen(state);
-}
-
 async function handleWebPanel(state: AppState): Promise<void> {
   try {
     await openPrinterPanel();
@@ -180,9 +169,6 @@ export function initOverviewScreen(
 ): void {
   els.refresh.addEventListener("click", () => {
     void refresh();
-  });
-  els.esclRetry.addEventListener("click", () => {
-    void handleEsclRetry(getState());
   });
   els.scan.addEventListener("click", () => {
     setScreen("scan");

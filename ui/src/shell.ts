@@ -77,8 +77,13 @@ export function renderShell(state: AppState): void {
 
   els.startupBanner.hidden = state.startupError === null;
   els.startupBannerText.textContent = state.startupError ?? "";
-  els.capsBanner.hidden = state.capsError === null;
-  els.capsBannerText.textContent = state.capsError ?? "";
+  const capsBannerText =
+    state.capsError ?? (state.esclFailed ? TEXT.esclUnavailable : null);
+  els.capsBanner.hidden = capsBannerText === null;
+  const capsBannerValue = capsBannerText ?? "";
+  if (els.capsBannerText.textContent !== capsBannerValue) {
+    els.capsBannerText.textContent = capsBannerValue;
+  }
   els.capsRetry.disabled = state.capsLoading;
   renderConnBanner(state);
   els.connRetry.disabled = state.refreshingStatus;

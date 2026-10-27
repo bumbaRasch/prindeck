@@ -1,5 +1,5 @@
 import { errorText, getCapabilities } from "./api";
-import type { OptionSpec } from "./dom";
+import { mustQuery, type OptionSpec } from "./dom";
 import { COLOR_LABELS, FORMAT_LABELS, SOURCE_LABELS } from "./labels";
 import type { AppState } from "./state";
 import type { ColorMode, DocFormat, InputCaps, ScanCaps, Source } from "./types";
@@ -62,9 +62,13 @@ export function pickFormat(
   return pickFirst(input.formats, FORMAT_PREFERENCE);
 }
 
-export async function reloadCapabilities(state: AppState): Promise<void> {
+export async function runCapabilitiesRefresh(
+  state: AppState,
+  render: () => void,
+): Promise<void> {
   state.capsLoading = true;
   state.capsError = null;
+  render();
   try {
     state.caps = await getCapabilities();
     state.esclFailed = false;
@@ -74,6 +78,19 @@ export async function reloadCapabilities(state: AppState): Promise<void> {
   } finally {
     state.capsLoading = false;
   }
+  render();
+}
+
+export function bindCapabilitiesRetry(
+  getState: () => AppState,
+  render: () => void,
+): void {
+  mustQuery<HTMLButtonElement>("#overview-escl-retry").addEventListener(
+    "click",
+    () => {
+      void runCapabilitiesRefresh(getState(), render);
+    },
+  );
 }
 
 export function normalizeSelections(state: AppState): void {

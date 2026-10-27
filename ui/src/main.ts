@@ -8,7 +8,7 @@ import {
   refreshStatus,
   type UnlistenFn,
 } from "./api";
-import { reloadCapabilities } from "./caps";
+import { bindCapabilitiesRetry, runCapabilitiesRefresh } from "./caps";
 import { initRouter } from "./router";
 import { createState } from "./state";
 import { initShell, renderShell } from "./shell";
@@ -120,14 +120,6 @@ async function refreshStatusNow(): Promise<void> {
   }
 }
 
-async function loadCapabilities(): Promise<void> {
-  state.capsLoading = true;
-  state.capsError = null;
-  render();
-  await reloadCapabilities(state);
-  render();
-}
-
 async function loadStartupError(): Promise<void> {
   try {
     const message = await getStartupError();
@@ -156,6 +148,7 @@ async function registerListeners(): Promise<void> {
 }
 
 function render(): void {
+  renderShell(state);
   renderScanScreen(state);
   renderOverviewScreen(state);
 }
@@ -163,7 +156,7 @@ function render(): void {
 function init(): void {
   initShell(
     () => {
-      void loadCapabilities();
+      void runCapabilitiesRefresh(state, render);
     },
     () => {
       void refreshStatusNow();
@@ -172,10 +165,11 @@ function init(): void {
   initRouter(render);
   initScanScreen(() => state);
   initOverviewScreen(() => state, () => refreshStatusNow());
+  bindCapabilitiesRetry(() => state, render);
 
   void registerListeners();
   void loadStartupError();
-  void loadCapabilities();
+  void runCapabilitiesRefresh(state, render);
   void loadStatus();
   render();
 }
