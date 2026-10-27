@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod config;
 pub mod escl;
+pub mod snmp;
 #[cfg(desktop)]
 pub mod tray;
 
