@@ -44,6 +44,7 @@ to the **Muse Spark 1.3 Contributor** model
 | `docs/oids-l2710dw.md` | SNMP, OIDs, response shapes (for M2) |
 | `docs/m1-prerequisites.md` | Tauri build environment |
 | `docs/superpowers/plans/` | step-by-step work plans |
+| `docs/ref/` | local-only, **gitignored**: reverse-engineering notes on the iPrint&Scan reference (installer anatomy, feature inventory, gap analysis, raw evidence) — never publish |
 
 ## Rules
 
