@@ -1,5 +1,8 @@
 use std::sync::{Mutex, MutexGuard};
 
+#[cfg(test)]
+mod tests;
+
 const SILENT_STREAK_POLLS: u32 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +42,7 @@ pub fn evaluate(
     prev: Option<&Measure>,
     next: &Measure,
     silent_streak: u32,
+    announced_offline: bool,
     cfg: &NotifyConfig,
 ) -> Vec<NotifyKind> {
     if !cfg.enabled {
@@ -48,9 +52,7 @@ pub fn evaluate(
     let mut kinds = Vec::new();
 
     if next.online {
-        if let Some(prev) = prev
-            && !prev.online
-        {
+        if announced_offline {
             kinds.push(NotifyKind::BackOnline);
         }
 
@@ -91,6 +93,7 @@ pub struct State {
 struct StateSnapshot {
     prev: Option<Measure>,
     silent_streak: u32,
+    announced_offline: bool,
 }
 
 impl State {
@@ -106,10 +109,21 @@ impl State {
             snapshot.silent_streak + 1
         };
 
-        let kinds = evaluate(snapshot.prev.as_ref(), next, silent_streak, cfg);
+        let kinds = evaluate(
+            snapshot.prev.as_ref(),
+            next,
+            silent_streak,
+            snapshot.announced_offline,
+            cfg,
+        );
 
         snapshot.prev = Some(*next);
         snapshot.silent_streak = silent_streak;
+        if next.online {
+            snapshot.announced_offline = false;
+        } else if kinds.contains(&NotifyKind::Silent) {
+            snapshot.announced_offline = true;
+        }
         kinds
     }
 
