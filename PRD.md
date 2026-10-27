@@ -57,6 +57,12 @@ the `lp`/`scanimage` CLI. There is no single window: status + toner + scan + pri
 - We do not do OCR/document search (v2, tesseract as an optional add-on).
 - Fax — no (the device has the module, but it is not needed).
 - Windows/macOS builds — no (Tauri allows it, but we do not test it).
+- From the iPrint&Scan reference (27.10.2026, reverse of the Windows installer;
+  local notes in `docs/ref/`, not published): cloud destinations
+  (Drive/OneDrive/Dropbox/SharePoint/Evernote), in-app Office conversion and OCR
+  (the vendor ships commercial Kofax OmniPage + Aspose; our OCR stays a v2
+  tesseract add-on), the USB bridge (prindeck is network-only), the vendor
+  account/marketing layer.
 
 ## 3. Device and environment (fixed facts)
 
@@ -114,6 +120,24 @@ the `lp`/`scanimage` CLI. There is no single window: status + toner + scan + pri
   "Quit"); on Linux the tray icon requires a menu to be set (a Tauri peculiarity).
 - History of toner levels/page counter: local SQLite (90-day chart).
 - "State report": once a week/month take a snapshot to a file (optional, off).
+
+### F5. From the iPrint&Scan reference (27.10.2026)
+
+A portable subset distilled from the reverse of the Windows iPrint&Scan
+17.0.20.2 installer (working notes — `docs/ref/`, local only, not published).
+Candidates R1–R7 plus a deferred R9; milestones are preliminary. R1/R7 are
+gated by a live check of the EWS paths on our device (§13.10).
+
+| # | Feature | Home | Notes / milestone |
+|---|---|---|---|
+| R1 | Deep links into the device web panel: date/time, firmware, network (wired/wireless), scan destinations and the Scan-to-PC list | «Обзор»/«Настройки» | M3, with the settings screen; paths taken from the reference resources need a live GET check (§13.10) — the reference targets other model families too |
+| R2 | Scan result preview with page operations before saving: rotate, delete/insert a page, reorder, crop | «Скан» | M3, after the ADF merge; fully client-side |
+| R3 | Continuous ADF: after a pass ask "add pages?" and append to the same PDF | «Скан» | M3; on eSCL — a new ScanJobs POST + merge, the device is free between passes |
+| R4 | Blank-page skip with a sensitivity setting (share of near-white pixels) | «Скан» | M3; applies to ADF passes |
+| R5 | Human-readable state from the already parsed blobs: jams → "check the paper path", drum pages vs 12 000 → "drum end soon" | «Обзор» | M4, with notifications; message wording referenced from the vendor status dictionary (docs/ref) |
+| R6 | Toner remaining-pages estimate next to the %: cartridge ISO yield minus the page counter | «Обзор» | M4, needs history (SQLite); the installed cartridge model/yield must be verified against the web panel first — do not hardcode |
+| R7 | Firmware: a menu item/notification opening the EWS firmware page — no flashing from prindeck | «Обзор»/tray | M4; "outdated" detection only if a trustworthy version source appears, otherwise just the link (§13.10) |
+| R9 | PC Copy: scan → print N copies via CUPS | «Скан» | deferred — both halves exist after M3; revisit at v2 planning |
 
 ## 5. Non-functional requirements
 
@@ -403,6 +427,12 @@ Crate policy: a new crate — only with a justification in the commit descriptio
 | M5 Release | icon, bundler (deb/rpm/AppImage), README+license, GitHub | repository published, install from the artifact |
 | v2 | mDNS discovery, OCR add-on, «Scan to PC» from the device body, other distributions | — |
 
+«Scan to PC» (v2), clarified 27.10.2026 from the reference: the Windows client
+receives the button press via WIA/STI push events plus two dispatch services —
+not portable. The Linux path: register prindeck as a scan destination in the
+device web panel (EWS scan-destination/Scan-to-PC pages, see §13.10) and catch
+the press by polling eSCL `ScannerStatus` — spike first (§13.11).
+
 ## 13. Spikes and open questions
 
 1. ~~Exact XML names of eSCL fields~~ — **resolved at M0**: see §7.1 (ColorMode
@@ -424,6 +454,16 @@ Crate policy: a new crate — only with a justification in the commit descriptio
    `brInfoCounter #00` (correct 4 bytes).
 9. The semantics of `#63`/`#31`/`#6f` of the maintenance blob is **unknown** (`#6f` = 34 % ≠
    40 %) — do not interpret, skip with a log.
+10. **EWS deep-link paths** (taken from iPrint&Scan resources, not verified on
+    our device; F5/R1, R7): `/admin/date.html`, `/admin/firmwareupdate.html`,
+    `/net/wired/link_tcpip_detail.html`, `/net/wireless/link_tcpip_detail.html`,
+    `/EWS/scan/scandestination.html`, `/scan/scantopc.html`. Check with plain
+    GETs against `http://192.168.187.36/` (no scan job involved) and record the
+    working set; prefixes may differ on this firmware.
+11. **Scan-to-PC mechanism** (v2 gate, §12): whether the EWS scan-destination
+    page accepts a network target (URL), and what the device does when the
+    button is pressed — does a job appear in eSCL `ScannerStatus`/`ScanJobs`?
+    Spike on the live device before planning v2.
 
 ## 14. Acceptance
 
