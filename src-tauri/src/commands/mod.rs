@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard, RwLock};
+use std::sync::atomic::AtomicU8;
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use reqwest::Url;
 use serde::Serialize;
@@ -10,6 +11,7 @@ use crate::config::{Config, ConfigHandle};
 use crate::escl::{EsclClient, ScanCaps};
 use caps::resolve_state;
 
+mod activity;
 mod caps;
 mod print;
 mod scan;
@@ -29,6 +31,7 @@ const FALLBACK_BASE_URL: &str = "http://127.0.0.1:9/eSCL/";
 #[derive(Debug)]
 pub struct AppState {
     pub config: ConfigHandle,
+    pub activity: Arc<AtomicU8>,
     client: RwLock<EsclClient>,
     caps: Mutex<Option<ScanCaps>>,
     jobs: Mutex<HashMap<String, Url>>,
@@ -48,6 +51,7 @@ impl AppState {
     ) -> AppState {
         AppState {
             config: ConfigHandle::new(config),
+            activity: Arc::new(AtomicU8::new(activity::ACTIVITY_IDLE)),
             client: RwLock::new(client),
             caps: Mutex::new(None),
             jobs: Mutex::new(HashMap::new()),
@@ -149,12 +153,13 @@ fn emit_error(app: &AppHandle, job_id: &str, failure: ScanFailure) {
     }
 }
 
+pub use activity::{ACTIVITY_IDLE, ACTIVITY_PRINTING, ACTIVITY_SCANNING};
 pub use caps::{get_capabilities, get_startup_error, open_scan_folder};
 pub use print::{cancel_print, get_queue, print_file};
 pub use scan::{cancel_scan, start_scan};
 pub use scan_errors::{ScanErrorKind, ScanFailure, user_message};
 pub use settings::{get_config, set_config};
-pub use status::{get_status, open_printer_panel, refresh_status};
+pub use status::{get_status, open_printer_panel, open_status_page, refresh_status};
 
 pub use caps::{
     __cmd__get_capabilities, __cmd__get_startup_error, __cmd__open_scan_folder,

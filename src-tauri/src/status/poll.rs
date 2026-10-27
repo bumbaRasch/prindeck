@@ -61,6 +61,8 @@ pub async fn poll_now(app: AppHandle) -> DeviceStatus {
     }
     emit_status(&app, &snapshot);
     notify::on_poll(&app, &snapshot);
+    #[cfg(desktop)]
+    crate::tray::refresh(&app);
     snapshot
 }
 

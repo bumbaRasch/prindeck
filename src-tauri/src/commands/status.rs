@@ -1,8 +1,19 @@
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 use super::AppState;
 use crate::status::{self, DeviceStatus};
+
+const PANEL_STATUS_PATH: &str = "/general/status.html";
+
+fn open_device_page(app: &AppHandle, path: &str) -> Result<(), String> {
+    let host = app.state::<AppState>().config.get().device.host;
+    let url = format!("http://{host}{path}");
+
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| format!("failed to open the printer panel: {error}"))
+}
 
 #[tauri::command]
 pub fn get_status(app: AppHandle) -> DeviceStatus {
@@ -23,10 +34,10 @@ pub async fn refresh_status(app: AppHandle) -> Result<DeviceStatus, String> {
 }
 
 #[tauri::command]
-pub fn open_printer_panel(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    let url = format!("http://{}/", state.config.get().device.host);
+pub fn open_printer_panel(app: AppHandle) -> Result<(), String> {
+    open_device_page(&app, "/")
+}
 
-    app.opener()
-        .open_url(url, None::<&str>)
-        .map_err(|error| format!("failed to open the printer panel: {error}"))
+pub fn open_status_page(app: &AppHandle) -> Result<(), String> {
+    open_device_page(app, PANEL_STATUS_PATH)
 }

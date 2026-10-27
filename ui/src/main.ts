@@ -1,6 +1,7 @@
 import {
   getStatus,
   getStartupError,
+  onNavigate,
   onScanDone,
   onScanError,
   onScanProgress,
@@ -9,7 +10,7 @@ import {
   type UnlistenFn,
 } from "./api";
 import { bindCapabilitiesRetry, runCapabilitiesRefresh } from "./caps";
-import { initRouter } from "./router";
+import { initRouter, setScreen } from "./router";
 import { createState } from "./state";
 import { initShell, renderShell } from "./shell";
 import type { DeviceStatus, ScanDone, ScanError, ScanProgress } from "./types";
@@ -151,6 +152,13 @@ async function registerListeners(): Promise<void> {
     unlisteners.push(await onScanDone(handleScanDone));
     unlisteners.push(await onScanError(handleScanError));
     unlisteners.push(await onStatus(handleStatus));
+    unlisteners.push(
+      await onNavigate((screen) => {
+        if (screen === "scan") {
+          setScreen(screen);
+        }
+      }),
+    );
   } catch (error) {
     console.warn("failed to register the event listeners", error);
   }
