@@ -46,9 +46,9 @@ impl AppState {
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> Result<MutexGuard<'_, T>, String> {
-    mutex
+    Ok(mutex
         .lock()
-        .map_err(|_| "internal error: the state is locked after a panic".to_string())
+        .unwrap_or_else(|poisoned| poisoned.into_inner()))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

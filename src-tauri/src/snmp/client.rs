@@ -67,8 +67,14 @@ impl SnmpClient {
     }
 }
 
-fn with_port(host: &str) -> String {
-    if host.contains(':') {
+pub(super) fn with_port(host: &str) -> String {
+    let already_ported = if host.contains('[') {
+        host.contains("]:")
+    } else {
+        host.contains(':')
+    };
+
+    if already_ported {
         host.to_owned()
     } else {
         format!("{host}:{SNMP_PORT}")

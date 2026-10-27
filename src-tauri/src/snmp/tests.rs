@@ -1,3 +1,4 @@
+use super::client::with_port;
 use super::{BlobError, SnmpClient, SnmpCounters, SnmpError, counters_from, parse_records};
 
 fn hex(value: &str) -> Vec<u8> {
@@ -66,6 +67,15 @@ fn unsupported_record_header_is_an_error() {
 }
 
 #[test]
+fn trailing_bad_header_beats_truncation() {
+    assert_eq!(
+        parse_records(&hex("a10208")),
+        Err(BlobError::BadHeader { id: 0xa1 })
+    );
+    assert_eq!(parse_records(&hex("a102")), Err(BlobError::Truncated));
+}
+
+#[test]
 fn unknown_record_ids_are_skipped() {
     let blob = hex("00010400001e49ff");
 
@@ -79,6 +89,14 @@ fn unknown_record_ids_are_skipped() {
 fn unreachable_host_is_a_transport_error() {
     let client = SnmpClient::new("127.0.0.1:9", "public");
     assert!(matches!(client.fetch(), Err(SnmpError::Transport(_))));
+}
+
+#[test]
+fn snmp_address_gets_the_default_port() {
+    assert_eq!(with_port("192.168.187.36"), "192.168.187.36:161");
+    assert_eq!(with_port("printer.local:1161"), "printer.local:1161");
+    assert_eq!(with_port("[fe80::1]"), "[fe80::1]:161");
+    assert_eq!(with_port("[fe80::1]:1161"), "[fe80::1]:1161");
 }
 
 #[test]

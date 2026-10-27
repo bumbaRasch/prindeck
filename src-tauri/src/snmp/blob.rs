@@ -34,13 +34,17 @@ pub fn parse_records(blob: &[u8]) -> Result<Vec<(u8, u32)>, BlobError> {
             return Ok(records);
         }
 
-        let Some(&[width, value_width, a, b, c, d]) = tail.first_chunk::<6>() else {
+        let Some(&[width, value_width]) = tail.first_chunk::<2>() else {
             return Err(BlobError::Truncated);
         };
 
         if width != 1 || value_width != 4 {
             return Err(BlobError::BadHeader { id });
         }
+
+        let Some(&[_, _, a, b, c, d]) = tail.first_chunk::<6>() else {
+            return Err(BlobError::Truncated);
+        };
 
         records.push((id, u32::from_be_bytes([a, b, c, d])));
         rest = &tail[6..];
