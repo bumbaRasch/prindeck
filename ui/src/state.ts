@@ -1,12 +1,14 @@
 import { PAGE_FORMS } from "./labels";
 import type {
   ColorMode,
+  Connectivity,
   DeviceStatus,
   DocFormat,
   ScanCaps,
   ScanParams,
   ScanPhase,
   Source,
+  Tone,
 } from "./types";
 
 export interface AppState {
@@ -27,6 +29,8 @@ export interface AppState {
   errorText: string | null;
   lastFile: string | null;
   status: DeviceStatus | null;
+  esclFailed: boolean;
+  refreshingStatus: boolean;
 }
 
 export function createState(): AppState {
@@ -48,7 +52,32 @@ export function createState(): AppState {
     errorText: null,
     lastFile: null,
     status: null,
+    esclFailed: false,
+    refreshingStatus: false,
   };
+}
+
+export const CONNECTIVITY_TONES: Record<Connectivity, Tone> = {
+  checking: "idle",
+  online: "ok",
+  offline: "error",
+  scanning: "busy",
+};
+
+export function connectivity(state: AppState): Connectivity {
+  if (state.jobId !== null) {
+    return "scanning";
+  }
+  const status = state.status;
+  if (status === null) {
+    return "checking";
+  }
+  if (status.ok) {
+    return "online";
+  }
+  return status.polledAt === null && status.error === null
+    ? "checking"
+    : "offline";
 }
 
 export function pluralPages(count: number): string {

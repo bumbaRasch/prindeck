@@ -152,6 +152,10 @@
     padding-inline: 0;
   }
 
+  .nav-item[data-active]::after {
+    margin-inline-start: 0;
+  }
+
   .nav-label {
     display: none;
   }

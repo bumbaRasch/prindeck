@@ -1,9 +1,20 @@
-import type { ColorMode, DocFormat, Screen, Source } from "./types";
+import type { ColorMode, Connectivity, DocFormat, Screen, Source } from "./types";
 
 export const SCREEN_TITLES: Record<Screen, string> = {
   scan: "Скан",
   overview: "Обзор",
 };
+
+export const CHIP_LABELS: Record<Connectivity, string> = {
+  checking: "Проверяем…",
+  online: "На связи",
+  offline: "Нет связи",
+  scanning: "Сканируем",
+};
+
+export function updatedSecondsAgo(seconds: number): string {
+  return `обновлено ${seconds} с назад`;
+}
 
 export const SOURCE_LABELS: Record<Source, string> = {
   Platen: "Планшет",
@@ -40,4 +51,19 @@ export const TEXT = {
   formatHint: "ч/б — только PDF",
   cancel: "Отмена",
   canceling: "Отмена…",
+  unreported: "—",
+  refresh: "Обновить",
+  retry: "Повторить",
+  esclUnavailable: "сканирование недоступно",
+  connectionTitle: "Подключение",
+  consumablesTitle: "Расходные материалы",
+  countersTitle: "Счётчики",
+  actionsTitle: "Действия",
+  tonerLabel: "Тонер",
+  drumLabel: "Барабан",
+  pagesLabel: "Напечатано страниц",
+  duplexLabel: "Дуплекс",
+  drumLeftLabel: "Ресурс барабана",
+  scanAction: "Скан",
+  webPanelAction: "Веб-панель",
 };

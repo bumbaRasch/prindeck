@@ -90,11 +90,13 @@ async function handleStart(state: AppState): Promise<void> {
 
   try {
     const jobId = await startScan(params);
+    state.esclFailed = false;
     if (state.jobId === null && state.lastFinishedJob !== jobId) {
       state.jobId = jobId;
     }
   } catch (error) {
     state.errorText = errorText(error);
+    state.esclFailed = true;
     state.jobId = null;
     state.phase = null;
     state.pages = 0;

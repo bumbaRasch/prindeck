@@ -1,16 +1,18 @@
 import {
-  errorText,
-  getCapabilities,
+  getStatus,
   getStartupError,
   onScanDone,
   onScanError,
   onScanProgress,
+  onStatus,
+  refreshStatus,
   type UnlistenFn,
 } from "./api";
+import { reloadCapabilities } from "./caps";
 import { initRouter } from "./router";
 import { createState } from "./state";
 import { initShell, renderShell } from "./shell";
-import type { ScanDone, ScanError, ScanProgress } from "./types";
+import type { DeviceStatus, ScanDone, ScanError, ScanProgress } from "./types";
 import { initOverviewScreen, renderOverviewScreen } from "./screens/overview";
 import { initScanScreen, renderScanScreen } from "./screens/scan";
 
@@ -50,6 +52,7 @@ function handleScanProgress(payload: ScanProgress): void {
     case "scanning":
       state.phase = payload.phase;
       state.errorText = null;
+      state.esclFailed = false;
       break;
     case "done":
       state.phase = "done";
@@ -61,7 +64,7 @@ function handleScanProgress(payload: ScanProgress): void {
       break;
   }
 
-  renderScanScreen(state);
+  render();
 }
 
 function handleScanDone(payload: ScanDone): void {
@@ -72,7 +75,8 @@ function handleScanDone(payload: ScanDone): void {
   state.phase = "done";
   state.lastFile = payload.file;
   state.errorText = null;
-  renderScanScreen(state);
+  state.esclFailed = false;
+  render();
 }
 
 function handleScanError(payload: ScanError): void {
@@ -82,22 +86,46 @@ function handleScanError(payload: ScanError): void {
   finishJob(payload.jobId);
   state.phase = null;
   state.errorText = payload.message;
-  renderScanScreen(state);
+  state.esclFailed = true;
+  render();
+}
+
+function handleStatus(payload: DeviceStatus): void {
+  state.status = payload;
+  renderShell(state);
+  renderOverviewScreen(state);
+}
+
+async function loadStatus(): Promise<void> {
+  try {
+    state.status = await getStatus();
+  } catch {
+  }
+  renderShell(state);
+  renderOverviewScreen(state);
+}
+
+async function refreshStatusNow(): Promise<void> {
+  if (state.refreshingStatus) {
+    return;
+  }
+  state.refreshingStatus = true;
+  render();
+  try {
+    state.status = await refreshStatus();
+  } catch {
+  } finally {
+    state.refreshingStatus = false;
+    render();
+  }
 }
 
 async function loadCapabilities(): Promise<void> {
   state.capsLoading = true;
   state.capsError = null;
-  renderScanScreen(state);
-
-  try {
-    state.caps = await getCapabilities();
-  } catch (error) {
-    state.capsError = errorText(error);
-  } finally {
-    state.capsLoading = false;
-    renderScanScreen(state);
-  }
+  render();
+  await reloadCapabilities(state);
+  render();
 }
 
 async function loadStartupError(): Promise<void> {
@@ -122,26 +150,33 @@ async function registerListeners(): Promise<void> {
     unlisteners.push(await onScanProgress(handleScanProgress));
     unlisteners.push(await onScanDone(handleScanDone));
     unlisteners.push(await onScanError(handleScanError));
+    unlisteners.push(await onStatus(handleStatus));
   } catch {
   }
 }
 
 function render(): void {
   renderScanScreen(state);
-  renderOverviewScreen();
+  renderOverviewScreen(state);
 }
 
 function init(): void {
-  initShell(() => {
-    void loadCapabilities();
-  });
+  initShell(
+    () => {
+      void loadCapabilities();
+    },
+    () => {
+      void refreshStatusNow();
+    },
+  );
   initRouter(render);
   initScanScreen(() => state);
-  initOverviewScreen();
+  initOverviewScreen(() => state, () => refreshStatusNow());
 
   void registerListeners();
   void loadStartupError();
   void loadCapabilities();
+  void loadStatus();
   render();
 }
 

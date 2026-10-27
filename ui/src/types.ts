@@ -7,6 +7,10 @@ export type DocFormat = "application/pdf" | "image/jpeg";
 
 export type Screen = "scan" | "overview";
 
+export type Connectivity = "checking" | "online" | "offline" | "scanning";
+
+export type Tone = "idle" | "busy" | "ok" | "warn" | "error";
+
 export interface DeviceStatus {
   ok: boolean;
   host: string;

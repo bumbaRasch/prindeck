@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/src/styles/shell.css" />
     <link rel="stylesheet" href="/src/styles/content.css" />
     <link rel="stylesheet" href="/src/styles/scan.css" />
+    <link rel="stylesheet" href="/src/styles/overview.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>prindeck — скан</title>
     <script type="module" src="/src/main.ts" defer></script>
@@ -116,6 +117,19 @@
             <p id="caps-banner-text" class="banner-text"></p>
           </div>
           <button id="caps-retry" class="button button--ghost" type="button">
+            Повторить
+          </button>
+        </div>
+
+        <div id="conn-banner" class="banner banner--error" role="status" aria-live="polite" hidden>
+          <div class="banner-body">
+            <p class="banner-title">Нет связи с устройством</p>
+            <p id="conn-banner-text" class="banner-text">
+              Не удаётся получить состояние устройства, сканирование
+              недоступно.
+            </p>
+          </div>
+          <button id="conn-retry" class="button button--ghost" type="button">
             Повторить
           </button>
         </div>

@@ -1,18 +1,28 @@
 import { mustQuery } from "./dom";
 import { TEXT } from "./labels";
-import { pluralPages, type AppState } from "./state";
+import {
+  CONNECTIVITY_TONES,
+  connectivity,
+  pluralPages,
+  type AppState,
+} from "./state";
+import type { Tone } from "./types";
 
 const els = {
+  deviceDot: mustQuery<HTMLElement>(".device-status-dot"),
   deviceModel: mustQuery<HTMLParagraphElement>("#device-model"),
   startupBanner: mustQuery<HTMLDivElement>("#startup-banner"),
   startupBannerText: mustQuery<HTMLParagraphElement>("#startup-banner-text"),
   capsBanner: mustQuery<HTMLDivElement>("#caps-banner"),
   capsBannerText: mustQuery<HTMLParagraphElement>("#caps-banner-text"),
   capsRetry: mustQuery<HTMLButtonElement>("#caps-retry"),
+  connBanner: mustQuery<HTMLDivElement>("#conn-banner"),
+  connRetry: mustQuery<HTMLButtonElement>("#conn-retry"),
+  scanNav: mustQuery<HTMLButtonElement>('[data-nav="scan"]'),
   status: mustQuery<HTMLParagraphElement>("#status"),
 };
 
-type Tone = "idle" | "busy" | "ok" | "warn" | "error";
+let connBannerShown: boolean | null = null;
 
 function statusView(state: AppState): { text: string; tone: Tone } {
   if (state.capsError !== null) {
@@ -50,23 +60,42 @@ function statusView(state: AppState): { text: string; tone: Tone } {
   }
 }
 
+function renderConnBanner(state: AppState): void {
+  const shown = connectivity(state) === "offline" && state.esclFailed;
+  if (shown === connBannerShown) {
+    return;
+  }
+  connBannerShown = shown;
+  els.connBanner.hidden = !shown;
+}
+
 export function renderShell(state: AppState): void {
   const caps = state.caps;
   els.deviceModel.textContent = caps === null ? "" : caps.makeAndModel;
+  els.deviceDot.dataset["tone"] = CONNECTIVITY_TONES[connectivity(state)];
+  els.scanNav.toggleAttribute("data-active", state.jobId !== null);
 
   els.startupBanner.hidden = state.startupError === null;
   els.startupBannerText.textContent = state.startupError ?? "";
   els.capsBanner.hidden = state.capsError === null;
   els.capsBannerText.textContent = state.capsError ?? "";
   els.capsRetry.disabled = state.capsLoading;
+  renderConnBanner(state);
+  els.connRetry.disabled = state.refreshingStatus;
 
   const status = statusView(state);
   els.status.textContent = status.text;
   els.status.dataset["tone"] = status.tone;
 }
 
-export function initShell(onCapsRetry: () => void): void {
+export function initShell(
+  onCapsRetry: () => void,
+  onStatusRetry: () => void,
+): void {
   els.capsRetry.addEventListener("click", () => {
     onCapsRetry();
+  });
+  els.connRetry.addEventListener("click", () => {
+    onStatusRetry();
   });
 }

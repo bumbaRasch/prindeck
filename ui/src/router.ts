@@ -36,7 +36,16 @@ function moveFocusedNav(from: Screen, offset: number): void {
   if (next === undefined) {
     return;
   }
-  navItems.get(next)?.focus();
+  const target = navItems.get(next);
+  if (target === undefined) {
+    return;
+  }
+  target.tabIndex = 0;
+  const previous = navItems.get(from);
+  if (previous !== undefined) {
+    previous.tabIndex = -1;
+  }
+  target.focus();
 }
 
 export function initRouter(onChange: (screen: Screen) => void): void {

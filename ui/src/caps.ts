@@ -1,3 +1,4 @@
+import { errorText, getCapabilities } from "./api";
 import type { OptionSpec } from "./dom";
 import { COLOR_LABELS, FORMAT_LABELS, SOURCE_LABELS } from "./labels";
 import type { AppState } from "./state";
@@ -59,6 +60,20 @@ export function pickFormat(
     return current;
   }
   return pickFirst(input.formats, FORMAT_PREFERENCE);
+}
+
+export async function reloadCapabilities(state: AppState): Promise<void> {
+  state.capsLoading = true;
+  state.capsError = null;
+  try {
+    state.caps = await getCapabilities();
+    state.esclFailed = false;
+  } catch (error) {
+    state.capsError = errorText(error);
+    state.esclFailed = true;
+  } finally {
+    state.capsLoading = false;
+  }
 }
 
 export function normalizeSelections(state: AppState): void {

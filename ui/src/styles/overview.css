@@ -1,0 +1,123 @@
+.overview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.overview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.overview-title {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.overview-model {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.overview-host,
+.overview-updated {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.overview-escl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 10px;
+  color: var(--warn-text);
+}
+
+.overview-escl-text {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.metric-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metric-name {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metric-value,
+.counter-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bar {
+  height: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+.counter-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.counter-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.counter-name {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.overview-card[data-state="offline"] .metric-value,
+.overview-card[data-state="offline"] .counter-value,
+.overview-card[data-state="offline"] .overview-model,
+.overview-card[data-state="offline"] .overview-updated {
+  color: var(--muted);
+}
