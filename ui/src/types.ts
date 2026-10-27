@@ -5,6 +5,20 @@ export type ColorMode = "BlackAndWhite1" | "Grayscale8" | "RGB24";
 
 export type DocFormat = "application/pdf" | "image/jpeg";
 
+export type Screen = "scan" | "overview";
+
+export interface DeviceStatus {
+  ok: boolean;
+  host: string;
+  tonerPercent: number | null;
+  drumPercent: number | null;
+  pagesTotal: number | null;
+  duplexPages: number | null;
+  drumPagesLeft: number | null;
+  polledAt: string | null;
+  error: string | null;
+}
+
 export interface ScanParams {
   source: Source;
   dpi: number;
