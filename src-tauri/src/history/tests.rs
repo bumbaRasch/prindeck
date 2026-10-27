@@ -68,3 +68,15 @@ fn try_record_swallows_errors() {
 
     try_record(&handle, &snapshot("2026-10-27T15:04:05+00:00"));
 }
+
+#[test]
+fn insert_failure_is_swallowed() {
+    let path = temp_db("insert-failure");
+    let history = History::open(&path).expect("history opens");
+    let snapshot = snapshot("2026-10-27T15:04:05+00:00");
+    history.record(&snapshot).expect("record succeeds");
+
+    let handle = HistoryHandle(Mutex::new(Some(history)));
+
+    try_record(&handle, &snapshot);
+}
