@@ -42,6 +42,7 @@ to the **Muse Spark 1.3 Contributor** model
 | `PRD.md` | requirements, stack, roadmap, open questions |
 | `docs/escl-l2710dw.md` | eSCL device facts, including the cancel spike (§10) |
 | `docs/oids-l2710dw.md` | SNMP, OIDs, response shapes (for M2) |
+| `docs/ews-l2710dw.md` | device web panel: URL scheme, auth model, verified public links, gated-zone notes |
 | `docs/m1-prerequisites.md` | Tauri build environment |
 | `docs/superpowers/plans/` | step-by-step work plans |
 | `docs/ref/` | local-only, **gitignored**: reverse-engineering notes on the iPrint&Scan reference (installer anatomy, feature inventory, gap analysis, raw evidence) — never publish |

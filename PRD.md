@@ -131,13 +131,13 @@ gated by a live check of the EWS paths on our device (§13.10).
 
 | # | Feature | Home | Notes / milestone |
 |---|---|---|---|
-| R1 | Deep links into the device web panel: date/time, firmware, network (wired/wireless), scan destinations and the Scan-to-PC list | «Обзор»/«Настройки» | M3, with the settings screen; paths taken from the reference resources need a live GET check (§13.10) — the reference targets other model families too |
+| R1 | Deep links into the device web panel: the verified public pages (status, maintenance info, sleep, auto power-off, replace toner, reports) + gated pages (date/time, firmware) behind the login-return mechanism | «Обзор»/«Настройки» | M3, with the settings screen; public links verified live 27.10.2026 (`docs/ews-l2710dw.md`), gated ones confirmed after a manual login |
 | R2 | Scan result preview with page operations before saving: rotate, delete/insert a page, reorder, crop | «Скан» | M3, after the ADF merge; fully client-side |
 | R3 | Continuous ADF: after a pass ask "add pages?" and append to the same PDF | «Скан» | M3; on eSCL — a new ScanJobs POST + merge, the device is free between passes |
 | R4 | Blank-page skip with a sensitivity setting (share of near-white pixels) | «Скан» | M3; applies to ADF passes |
 | R5 | Human-readable state from the already parsed blobs: jams → "check the paper path", drum pages vs 12 000 → "drum end soon" | «Обзор» | M4, with notifications; message wording referenced from the vendor status dictionary (docs/ref) |
 | R6 | Toner remaining-pages estimate next to the %: cartridge ISO yield minus the page counter | «Обзор» | M4, needs history (SQLite); the installed cartridge model/yield must be verified against the web panel first — do not hardcode |
-| R7 | Firmware: a menu item/notification opening the EWS firmware page — no flashing from prindeck | «Обзор»/tray | M4; "outdated" detection only if a trustworthy version source appears, otherwise just the link (§13.10) |
+| R7 | Firmware: a menu item/notification opening the device firmware page — no flashing from prindeck | «Обзор»/tray | M4; the path is auth-gated and its existence unknown (`docs/ews-l2710dw.md`) — confirm during the manual login check, otherwise the link goes to the panel root |
 | R9 | PC Copy: scan → print N copies via CUPS | «Скан» | deferred — both halves exist after M3; revisit at v2 planning |
 
 ## 5. Non-functional requirements
@@ -455,16 +455,24 @@ the press by polling eSCL `ScannerStatus` — spike first (§13.11).
    `brInfoCounter #00` (correct 4 bytes).
 9. The semantics of `#63`/`#31`/`#6f` of the maintenance blob is **unknown** (`#6f` = 34 % ≠
    40 %) — do not interpret, skip with a log.
-10. **EWS deep-link paths** (taken from iPrint&Scan resources, not verified on
-    our device; F5/R1, R7): `/admin/date.html`, `/admin/firmwareupdate.html`,
-    `/net/wired/link_tcpip_detail.html`, `/net/wireless/link_tcpip_detail.html`,
-    `/EWS/scan/scandestination.html`, `/scan/scantopc.html`. Check with plain
-    GETs against `http://192.168.187.36/` (no scan job involved) and record the
-    working set; prefixes may differ on this firmware.
+10. ~~**EWS deep-link paths**~~ — **checked live 27.10.2026** (GET-only, no login
+    POSTs; `docs/ews-l2710dw.md`): the panel root redirects to
+    `/general/status.html`; everything outside `/general/` sits behind a login
+    gate that fires **before** the existence check, so the reference paths
+    (`/admin/date.html`, `/admin/firmwareupdate.html`, `/net/...`,
+    `/scan/scandestination.html`, `/scan/scantopc.html`) stay **unknown**
+    without credentials. Verified public-zone links: status, maintenance info,
+    sleep, auto power-off, mode timer, volume, panel, replace-toner, reports.
+    Deep links to gated pages still work behind the login form (`loginurl`
+    return) — R1 ships verified public links; gated links wait for a manual
+    logged-in confirmation.
 11. **Scan-to-PC mechanism** (v2 gate, §12): whether the EWS scan-destination
     page accepts a network target (URL), and what the device does when the
     button is pressed — does a job appear in eSCL `ScannerStatus`/`ScanJobs`?
-    Spike on the live device before planning v2.
+    Spike on the live device before planning v2. Observed 27.10.2026:
+    `ScannerCapabilities` declares the `xmlns:dest` namespace with no `dest:`
+    elements (no destinations registered) — registration may be supported;
+    also check the gated `/scan/` panel subtree after a manual login.
 
 ## 14. Acceptance
 
