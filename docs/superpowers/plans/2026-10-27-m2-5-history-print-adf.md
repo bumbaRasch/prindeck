@@ -303,33 +303,27 @@ git commit -m "M2.5: per-page ADF fetch loop with partial-keep terminals"
 
 ---
 
-### Task 6: `pdf_merge` module (outcome A)
+### Task 6: ADF pipeline per the spike verdict — 6b re-scope (outcome B for PDF)
 
-Split for parallelism: **6a** (pure module + tests, runs in wave 1 in its own worktree, does not touch the scan pipeline) and **6b** (wiring, wave 2, after Task 5 merges).
-
-**Files (6a):**
-- Create: `src-tauri/src/pdf_merge.rs` + tests; Modify: `src-tauri/Cargo.toml`, `src-tauri/src/lib.rs` (`pub mod pdf_merge;`)
+**Verdict (docs/escl-l2710dw.md §11, live 27.10.2026):** PDF = outcome B (the whole stack arrives in ONE `NextDocument`, firmware merges server-side); JPEG = outcome A (one document per page). The pause rule is NOT required on this unit (1 ms gaps clean). The JPEG→PDF conversion is a spec non-goal. Therefore: the `pdf_merge`/lopdf path landed in 6a has **no consumer** and is removed; the Task 5 loop already handles both formats (PDF: one document → one file; JPEG: per-page files).
 
 **Files (6b):**
-- Modify: `src-tauri/src/commands/scan_jobs.rs` (call site), `fixtures/escl/adf/` real fixtures from Task 4 upgrading the 6a tests
+- Delete: `src-tauri/src/pdf_merge.rs`, `src-tauri/src/pdf_merge/tests.rs`, `fixtures/escl/platen-300-gray.pdf` (superseded by the real ADF fixtures)
+- Modify: `src-tauri/Cargo.toml` + `Cargo.lock` (drop `lopdf`), `src-tauri/src/lib.rs` (drop the mod line), `src-tauri/src/commands/scan_pages.rs` (drop `next_delay`), `src-tauri/src/commands/tests/scan_pages_tests.rs` (drop the pause tests), `src-tauri/src/commands/tests/scan_files_tests.rs` (PDF naming pins the B reality), `src-tauri/src/escl.rs` (Feeder region + fetch timeout), `.gitignore` (fixture exception)
 
-**Interfaces:**
-- Produces: `pub fn merge_pdfs(pages: &[Vec<u8>]) -> Result<Vec<u8>, MergeError>`
-- Consumes (6b): `PagesOutcome::Complete/Canceled{pages}` with >1 PDF page (invoke only then; a single page saves as-is — outcome B needs no merge).
+**Interfaces:** unchanged — `PagesOutcome`, the terminal-event table, `scan-progress {pages}`, `scan-done {files, partial, warning}` all stand as landed in Task 5.
 
-- [ ] **Step 0 (6b): Branch on the spike verdict** — §11 says B and `fixtures/escl/adf` holds a single multi-page PDF? Then do not wire the merge at all, record the decision, and 6a's module stays dormant behind its tests. Otherwise wire it.
+- [ ] **Step 1: Failing/adjusted tests first** — (a) delete `next_delay_clamps` and any pause-related test; the loop tests must show consecutive fetches with no sleep; (b) replace the transitional `multi_page_pdf_names_pages_until_merge` with a pin of outcome B: a PDF job yields exactly ONE document (the whole stack) saved as `scan-YYYYMMDD-HHMMSS.pdf` (no `-pN` for PDF ever); JPEG naming tests keep `-p1..-pN.jpg` against the real `fixtures/escl/adf/adf-page-*.jpg`; (c) Feeder region: a Feeder A4 job requests `Height 3507`, not the 4200 capability (§11.4: with 4200 on A4 paper, non-final PDF pages carry ~6 cm blank tails); (d) Feeder fetch timeout scales with the stack: budget `8 s × FeederCapacity + margin ≥ 180 s` for the whole-stack PDF response (§11.9; the flat 120 s would kill ≥ 15-sheet stacks).
 
-- [ ] **Step 1: Failing tests (6a) on the device PDF** — copy `~/Documents/scans/scan-20261027-095553.pdf` to `fixtures/escl/platen-300-gray.pdf` (a real firmware-produced single-page PDF); `merge_pdfs(&[page, page, page])` → lopdf `get_pages().len() == 3`; `merge_single_page` → pages == 1; `merge_rejects_garbage` → `Err(MergeError::Parse(_))`; merged bytes start with `%PDF-`. 6b upgrades these to the real ADF per-page fixtures.
+- [ ] **Step 2: Implement the adjustments** — remove `pdf_merge` + `lopdf` + the mod line; remove the pause from the fetch loop; Feeder region = A4 height from the platen caps (the 4200 capability stays documented for a future Legal option); Feeder `NextDocument` per-request timeout per the formula above (Platen keeps 120 s). `.gitignore`: add the exception that tracks `fixtures/escl/adf/*` (the four spike fixtures were force-added past the `*.jpg` rule — make them normally tracked).
 
-- [ ] **Step 2: Run to fail** — compile error.
+- [ ] **Step 3: Full gate green** — `cargo test --workspace`, `cargo check --workspace --all-targets`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check`, `npm run typecheck`, `npm run build`, `npm run check:code-language`, `npm run check:line-count`; `git status` shows the jpg fixtures tracked WITHOUT force-flags needed (test: `git rm --cached` one and `git add` it back cleanly).
 
-- [ ] **Step 3: Implement** — lopdf README merge pattern (renumber objects per document, rebuild one `Pages` root with `Kids`/`Count`, drop `Outlines`, `compress()`); `default-features = false`; write atomically (temp + rename) in `scan_jobs.rs` before `scan-done`.
-
-- [ ] **Step 4: Tests + gate; `wc -l` under 200; commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src-tauri/src/pdf_merge.rs src-tauri/Cargo.toml Cargo.lock src-tauri/src/lib.rs src-tauri/src/commands/scan_jobs.rs
-git commit -m "M2.5: lopdf client-side merge of per-page ADF PDFs"
+git add -A src-tauri fixtures .gitignore Cargo.lock
+git commit -m "M2.5: ADF pipeline per spike — firmware PDF merge, no pause, stack-scaled timeout"
 ```
 
 ---
