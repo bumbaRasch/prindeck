@@ -74,8 +74,8 @@ export function renderScanScreen(state: AppState): void {
   els.cancel.disabled = state.canceling;
   els.cancel.textContent = state.canceling ? TEXT.canceling : TEXT.cancel;
 
-  els.result.hidden = state.lastFile === null;
-  els.resultPath.textContent = state.lastFile ?? "";
+  els.result.hidden = state.lastFiles.length === 0;
+  els.resultPath.textContent = state.lastFiles.join(", ");
 }
 
 async function handleStart(state: AppState): Promise<void> {
@@ -88,7 +88,9 @@ async function handleStart(state: AppState): Promise<void> {
   state.errorText = null;
   state.phase = null;
   state.pages = 0;
-  state.lastFile = null;
+  state.lastFiles = [];
+  state.lastPartial = false;
+  state.lastWarning = null;
   state.canceling = false;
   render(state);
 

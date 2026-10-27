@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 
 use reqwest::Url;
@@ -16,6 +16,7 @@ mod scan;
 mod scan_errors;
 mod scan_files;
 mod scan_jobs;
+mod scan_pages;
 mod status;
 
 pub const EVENT_PROGRESS: &str = "scan-progress";
@@ -74,7 +75,9 @@ pub struct ScanProgress {
 #[serde(rename_all = "camelCase")]
 pub struct ScanDone {
     pub job_id: String,
-    pub file: String,
+    pub files: Vec<String>,
+    pub partial: bool,
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -97,10 +100,21 @@ fn emit_progress(app: &AppHandle, job_id: &str, phase: ScanPhase, pages: u32) {
     }
 }
 
-fn emit_done(app: &AppHandle, job_id: &str, file: &Path) {
+fn emit_done(
+    app: &AppHandle,
+    job_id: &str,
+    files: &[PathBuf],
+    partial: bool,
+    warning: Option<String>,
+) {
     let payload = ScanDone {
         job_id: job_id.to_string(),
-        file: file.display().to_string(),
+        files: files
+            .iter()
+            .map(|file| file.display().to_string())
+            .collect(),
+        partial,
+        warning,
     };
 
     if let Err(error) = app.emit(EVENT_DONE, payload) {

@@ -70,7 +70,9 @@ export interface ScanProgress {
 
 export interface ScanDone {
   jobId: string;
-  file: string;
+  files: string[];
+  partial: boolean;
+  warning: string | null;
 }
 
 export interface ScanError {

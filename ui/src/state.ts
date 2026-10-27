@@ -29,7 +29,9 @@ export interface AppState {
   phase: ScanPhase | null;
   pages: number;
   errorText: string | null;
-  lastFile: string | null;
+  lastFiles: string[];
+  lastPartial: boolean;
+  lastWarning: string | null;
   status: DeviceStatus | null;
   esclFailed: boolean;
   refreshingStatus: boolean;
@@ -62,7 +64,9 @@ export function createState(): AppState {
     phase: null,
     pages: 0,
     errorText: null,
-    lastFile: null,
+    lastFiles: [],
+    lastPartial: false,
+    lastWarning: null,
     status: null,
     esclFailed: false,
     refreshingStatus: false,

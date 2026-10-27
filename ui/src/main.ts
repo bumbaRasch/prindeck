@@ -74,7 +74,9 @@ function handleScanDone(payload: ScanDone): void {
   }
   finishJob(payload.jobId);
   state.phase = "done";
-  state.lastFile = payload.file;
+  state.lastFiles = payload.files;
+  state.lastPartial = payload.partial;
+  state.lastWarning = payload.warning;
   state.errorText = null;
   state.esclFailed = false;
   render();

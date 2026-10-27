@@ -1,25 +1,27 @@
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use chrono::Local;
 use reqwest::Url;
 use tauri::{AppHandle, Manager};
 
-use super::scan_files::{format_matches, part_path, remove_part, unique_scan_path};
+use super::scan_files::write_pages;
+use super::scan_pages::{PagesOutcome, fetch_pages};
 use super::{
-    AppState, ScanErrorKind, ScanFailure, ScanPhase, emit_done, emit_error, emit_progress,
+    AppState, ScanFailure, ScanPhase, emit_done, emit_error, emit_progress, user_message,
 };
-use crate::escl::{DocFormat, EsclClient, NextDoc};
+use crate::escl::{DocFormat, EsclClient};
 
-const ADF_NOT_SUPPORTED: &str =
-    "the device returned more than one page: the feeder is not supported in this version";
-const UNEXPECTED_FORMAT: &str = "the device returned an unexpected format";
-const NO_DOCUMENT: &str = "the device returned no document";
-
-enum ScanOutcome {
-    Done(PathBuf),
+#[derive(Debug)]
+pub(super) enum TerminalEvent {
+    Done {
+        files: Vec<PathBuf>,
+        partial: bool,
+        warning: Option<String>,
+    },
     Canceled,
-    Failed(ScanFailure),
+    Error {
+        failure: ScanFailure,
+    },
 }
 
 pub(super) async fn run_scan(
@@ -32,19 +34,27 @@ pub(super) async fn run_scan(
 ) {
     emit_progress(&app, &job_id, ScanPhase::Scanning, 0);
 
-    let outcome = fetch_document(&client, &scan_dir, &job, &job_id, format).await;
+    let outcome = fetch_pages(&client, &job, format, |pages| {
+        emit_progress(&app, &job_id, ScanPhase::Scanning, pages);
+    })
+    .await;
 
-    match outcome {
-        ScanOutcome::Done(file) => {
-            tracing::info!(%job_id, path = %file.display(), "scan saved");
-            emit_done(&app, &job_id, &file);
-            emit_progress(&app, &job_id, ScanPhase::Done, 1);
+    let terminal = finish_scan(&client, &scan_dir, &job_id, &job, format, outcome).await;
+
+    match terminal {
+        TerminalEvent::Done {
+            files,
+            partial,
+            warning,
+        } => {
+            tracing::info!(%job_id, files = ?files, partial, "scan saved");
+            emit_done(&app, &job_id, &files, partial, warning);
         }
-        ScanOutcome::Canceled => {
+        TerminalEvent::Canceled => {
             tracing::info!(%job_id, "scan canceled");
             emit_progress(&app, &job_id, ScanPhase::Canceled, 0);
         }
-        ScanOutcome::Failed(failure) => {
+        TerminalEvent::Error { failure } => {
             tracing::warn!(%job_id, kind = ?failure.kind, message = %failure.message, "scan failed");
             emit_error(&app, &job_id, failure);
         }
@@ -53,80 +63,80 @@ pub(super) async fn run_scan(
     forget_job(&app, &job_id);
 }
 
-async fn fetch_document(
+pub(super) async fn finish_scan(
     client: &EsclClient,
     scan_dir: &Path,
-    job: &Url,
     job_id: &str,
+    job: &Url,
     format: DocFormat,
-) -> ScanOutcome {
-    let part = part_path(scan_dir, job_id);
-    let mut written = false;
+    outcome: PagesOutcome,
+) -> TerminalEvent {
+    let partial = !matches!(outcome, PagesOutcome::Complete { .. });
 
-    loop {
-        match client.next_document(job).await {
-            Ok(NextDoc::Document(bytes)) => {
-                if written {
-                    best_effort_cancel(client, job).await;
-                    remove_part(&part);
-                    return ScanOutcome::Failed(ScanFailure::new(
-                        ScanErrorKind::Device,
-                        ADF_NOT_SUPPORTED,
-                    ));
-                }
+    if partial {
+        best_effort_cancel(client, job).await;
+    }
 
-                if !format_matches(format, &bytes) {
-                    best_effort_cancel(client, job).await;
-                    remove_part(&part);
-                    return ScanOutcome::Failed(ScanFailure::new(
-                        ScanErrorKind::Device,
-                        UNEXPECTED_FORMAT,
-                    ));
-                }
+    let pages = outcome_pages(&outcome);
+    let (files, storage) = write_pages(scan_dir, job_id, format, pages, partial, Local::now());
+    let terminal = terminal_for(&outcome, &files, storage);
 
-                if let Err(error) = fs::write(&part, &bytes) {
-                    remove_part(&part);
-                    best_effort_cancel(client, job).await;
-                    return save_failure(error);
-                }
+    if let TerminalEvent::Done {
+        warning: Some(message),
+        ..
+    } = &terminal
+    {
+        tracing::warn!(%job_id, %message, "scan saved with a warning");
+    }
 
-                written = true;
+    terminal
+}
+
+pub(super) fn terminal_for(
+    outcome: &PagesOutcome,
+    files: &[PathBuf],
+    storage: Option<ScanFailure>,
+) -> TerminalEvent {
+    if let Some(failure) = storage {
+        return if files.is_empty() {
+            TerminalEvent::Error { failure }
+        } else {
+            TerminalEvent::Done {
+                files: files.to_vec(),
+                partial: true,
+                warning: Some(failure.message),
             }
-            Ok(NextDoc::End) => {
-                if !written {
-                    remove_part(&part);
-                    return ScanOutcome::Failed(ScanFailure::new(
-                        ScanErrorKind::Device,
-                        NO_DOCUMENT,
-                    ));
-                }
+        };
+    }
 
-                let target = unique_scan_path(scan_dir, Local::now(), format);
-                if let Err(error) = fs::rename(&part, &target) {
-                    remove_part(&part);
-                    return save_failure(error);
-                }
-
-                return ScanOutcome::Done(target);
-            }
-            Ok(NextDoc::Canceled) => {
-                remove_part(&part);
-                return ScanOutcome::Canceled;
-            }
-            Err(error) => {
-                remove_part(&part);
-                best_effort_cancel(client, job).await;
-                return ScanOutcome::Failed(ScanFailure::from_escl(&error));
-            }
-        }
+    match outcome {
+        PagesOutcome::Complete { .. } => TerminalEvent::Done {
+            files: files.to_vec(),
+            partial: false,
+            warning: None,
+        },
+        PagesOutcome::Canceled { pages } if !pages.is_empty() => TerminalEvent::Done {
+            files: files.to_vec(),
+            partial: true,
+            warning: None,
+        },
+        PagesOutcome::Canceled { .. } => TerminalEvent::Canceled,
+        PagesOutcome::Failed { pages, error } if !pages.is_empty() => TerminalEvent::Done {
+            files: files.to_vec(),
+            partial: true,
+            warning: Some(user_message(error)),
+        },
+        PagesOutcome::Failed { error, .. } => TerminalEvent::Error {
+            failure: ScanFailure::from_escl(error),
+        },
     }
 }
 
-fn save_failure(error: std::io::Error) -> ScanOutcome {
-    ScanOutcome::Failed(ScanFailure::new(
-        ScanErrorKind::Storage,
-        format!("failed to save the file: {error}"),
-    ))
+fn outcome_pages(outcome: &PagesOutcome) -> &[Vec<u8>] {
+    match outcome {
+        PagesOutcome::Complete { pages } | PagesOutcome::Canceled { pages } => pages,
+        PagesOutcome::Failed { pages, .. } => pages,
+    }
 }
 
 pub(super) async fn best_effort_cancel(client: &EsclClient, job: &Url) {

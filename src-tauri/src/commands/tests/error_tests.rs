@@ -100,14 +100,41 @@ fn serializes_done_and_error_payloads() {
 
     let done = serde_json::to_value(ScanDone {
         job_id: job_id.to_string(),
-        file: "/tmp/scans/scan-20261027-141530.pdf".to_string(),
+        files: vec![
+            "/tmp/scans/scan-20261027-141530-p1.jpg".to_string(),
+            "/tmp/scans/scan-20261027-141530-p2.jpg".to_string(),
+        ],
+        partial: true,
+        warning: Some("the device is not responding".to_string()),
     })
     .expect("done serializes");
     assert_eq!(
         done,
         json!({
             "jobId": job_id,
-            "file": "/tmp/scans/scan-20261027-141530.pdf"
+            "files": [
+                "/tmp/scans/scan-20261027-141530-p1.jpg",
+                "/tmp/scans/scan-20261027-141530-p2.jpg"
+            ],
+            "partial": true,
+            "warning": "the device is not responding"
+        })
+    );
+
+    let clean = serde_json::to_value(ScanDone {
+        job_id: job_id.to_string(),
+        files: vec!["/tmp/scans/scan-20261027-141530.pdf".to_string()],
+        partial: false,
+        warning: None,
+    })
+    .expect("clean done serializes");
+    assert_eq!(
+        clean,
+        json!({
+            "jobId": job_id,
+            "files": ["/tmp/scans/scan-20261027-141530.pdf"],
+            "partial": false,
+            "warning": null
         })
     );
 

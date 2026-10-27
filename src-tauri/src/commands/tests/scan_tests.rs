@@ -1,33 +1,10 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-
-use chrono::{DateTime, Local, TimeZone};
 use serde_json::json;
 
+use super::sample_time;
 use crate::commands::scan::{StartRejection, rejection_failure, validate_job_id};
-use crate::commands::scan_files::{format_matches, part_path, scan_file_name, unique_scan_path};
+use crate::commands::scan_files::{format_matches, scan_file_name};
 use crate::commands::{ScanErrorKind, ScanPhase, ScanProgress};
 use crate::escl::DocFormat;
-
-fn sample_time() -> DateTime<Local> {
-    Local
-        .with_ymd_and_hms(2026, 10, 27, 14, 15, 30)
-        .single()
-        .expect("valid local time")
-}
-
-fn unique_temp_dir(name: &str) -> PathBuf {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_nanos())
-        .unwrap_or(0);
-    let dir = std::env::temp_dir().join(format!(
-        "prindeck-commands-{name}-{}-{nanos}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&dir).expect("create temp dir");
-    dir
-}
 
 #[test]
 fn busy_refusal_maps_to_busy_kind() {
@@ -88,33 +65,6 @@ fn builds_scan_file_names() {
 }
 
 #[test]
-fn avoids_existing_scan_file_names() {
-    let dir = unique_temp_dir("names");
-
-    let first = unique_scan_path(&dir, sample_time(), DocFormat::Pdf);
-    assert_eq!(
-        first.file_name().and_then(|name| name.to_str()),
-        Some("scan-20261027-141530.pdf")
-    );
-
-    fs::write(&first, b"%PDF-1.4").expect("write first file");
-    let second = unique_scan_path(&dir, sample_time(), DocFormat::Pdf);
-    assert_eq!(
-        second.file_name().and_then(|name| name.to_str()),
-        Some("scan-20261027-141530-2.pdf")
-    );
-
-    fs::write(&second, b"%PDF-1.4").expect("write second file");
-    let third = unique_scan_path(&dir, sample_time(), DocFormat::Pdf);
-    assert_eq!(
-        third.file_name().and_then(|name| name.to_str()),
-        Some("scan-20261027-141530-3.pdf")
-    );
-
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
 fn detects_file_magic() {
     assert!(format_matches(DocFormat::Pdf, b"%PDF-1.7\n..."));
     assert!(format_matches(
@@ -150,20 +100,4 @@ fn serializes_progress_payloads_camel_case() {
             json!({ "jobId": job_id, "phase": expected, "pages": 0 })
         );
     }
-}
-
-#[test]
-fn builds_part_path_from_job_id() {
-    let part = part_path(Path::new("/tmp/scans"), "/eSCL/ScanJobs/abc-123");
-
-    assert_eq!(
-        part.file_name().and_then(|name| name.to_str()),
-        Some(".scan-abc-123.part")
-    );
-
-    let weird = part_path(Path::new("/tmp/scans"), "/eSCL/ScanJobs/../../eth");
-    assert_eq!(
-        weird.file_name().and_then(|name| name.to_str()),
-        Some(".scan-eth.part")
-    );
 }
