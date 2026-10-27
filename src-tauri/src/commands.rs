@@ -29,6 +29,7 @@ const NO_DOCUMENT: &str = "the device returned no document";
 const INVALID_JOB_ID: &str = "invalid job id";
 const JOB_NOT_FOUND: &str = "job not found";
 
+#[derive(Debug)]
 pub struct AppState {
     pub config: Config,
     pub client: EsclClient,
@@ -392,10 +393,10 @@ fn part_path(dir: &Path, job_id: &str) -> PathBuf {
 }
 
 fn remove_part(part: &Path) {
-    if let Err(error) = fs::remove_file(part) {
-        if error.kind() != std::io::ErrorKind::NotFound {
-            tracing::debug!(%error, path = %part.display(), "failed to remove the temporary file");
-        }
+    if let Err(error) = fs::remove_file(part)
+        && error.kind() != std::io::ErrorKind::NotFound
+    {
+        tracing::debug!(%error, path = %part.display(), "failed to remove the temporary file");
     }
 }
 

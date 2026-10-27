@@ -57,10 +57,10 @@ impl Config {
                 config.validate()?;
                 config.ensure_scan_dir()?;
 
-                if let Some(parent) = path.parent() {
-                    if !parent.as_os_str().is_empty() {
-                        fs::create_dir_all(parent).map_err(ConfigError::Io)?;
-                    }
+                if let Some(parent) = path.parent()
+                    && !parent.as_os_str().is_empty()
+                {
+                    fs::create_dir_all(parent).map_err(ConfigError::Io)?;
                 }
 
                 let json = serde_json::to_string_pretty(&config).map_err(ConfigError::Serde)?;

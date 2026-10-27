@@ -370,7 +370,7 @@ impl ScanParams {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EsclClient {
     base: Url,
     http: reqwest::Client,
@@ -652,17 +652,17 @@ fn parse_capabilities(xml: &str) -> Result<ScanCaps, EsclError> {
                         }
                     }
                     CapsField::ColorMode => {
-                        if let Some(caps) = current.as_mut() {
-                            if let Some(mode) = ColorMode::from_xml(value) {
-                                push_unique(&mut caps.color_modes, mode);
-                            }
+                        if let Some(caps) = current.as_mut()
+                            && let Some(mode) = ColorMode::from_xml(value)
+                        {
+                            push_unique(&mut caps.color_modes, mode);
                         }
                     }
                     CapsField::DocumentFormat | CapsField::DocumentFormatExt => {
-                        if let Some(caps) = current.as_mut() {
-                            if let Some(format) = DocFormat::from_xml(value) {
-                                push_unique(&mut caps.formats, format);
-                            }
+                        if let Some(caps) = current.as_mut()
+                            && let Some(format) = DocFormat::from_xml(value)
+                        {
+                            push_unique(&mut caps.formats, format);
                         }
                     }
                     CapsField::XResolution => {
@@ -789,16 +789,16 @@ fn parse_status(xml: &str) -> Result<ScannerStatus, EsclError> {
             Event::End(element) => {
                 field = None;
 
-                if element.local_name().as_ref() == "JobInfo" {
-                    if let Some(job) = job.take() {
-                        match (job.uri, job.state) {
-                            (Some(uri), Some(state)) => jobs.push(JobInfo {
-                                uri,
-                                state,
-                                reasons: job.reasons,
-                            }),
-                            _ => tracing::debug!("skipped an incomplete JobInfo entry"),
-                        }
+                if element.local_name().as_ref() == "JobInfo"
+                    && let Some(job) = job.take()
+                {
+                    match (job.uri, job.state) {
+                        (Some(uri), Some(state)) => jobs.push(JobInfo {
+                            uri,
+                            state,
+                            reasons: job.reasons,
+                        }),
+                        _ => tracing::debug!("skipped an incomplete JobInfo entry"),
                     }
                 }
             }

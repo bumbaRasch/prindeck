@@ -8,8 +8,9 @@ current plan in `docs/superpowers/plans/`.
 
 - Rust: `export PATH="$HOME/.cargo/bin:$PATH"` (cargo/rustc 1.99.1).
 - Before committing: `cargo test --workspace`,
-  `cargo check --workspace --all-targets`, `npm run typecheck`, `npm run build`,
-  `npm run check:code-language` — all green, no warnings.
+  `cargo check --workspace --all-targets`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, `npm run typecheck`,
+  `npm run build`, `npm run check:code-language` — all green, no warnings.
 - Device: `192.168.187.36`, eSCL `http://192.168.187.36/eSCL/`, scans in
   `~/Documents/scans`, config at `~/.config/prindeck/config.json`.
 - The printer is physical: a scan takes ~8 s and occupies the device. Start a
@@ -71,4 +72,15 @@ to the **Muse Spark 1.3 Contributor** model
   always visible, no dead ends, no placeholder controls. When something is not
   possible, say it in the interface instead of failing silently or greying
   out a control without a reason.
+- No source file over 200 lines. When one grows past that, split it along
+  domain responsibilities before adding more code, and name the modules after
+  the domain (`status`, `scan`, `tray`) — never `utils`, `common` or `helpers`.
+  Files already above the limit are split when they are next touched.
+- KISS first, then DRY, then SOLID: the simplest structure that names the
+  domain wins; extract shared code only at the second real use; one module, one
+  reason to change; depend on the IPC/domain types, not on screen internals.
+  Rust: `rustfmt` plus the `[lints]` tables in `src-tauri/Cargo.toml` and
+  clippy `-D warnings` carry the rule (Pragmatic Rust Guidelines
+  M-BALANCED-MODULES and M-STATIC-VERIFICATION, read through `context7`).
+  TypeScript: the strict flags in `tsconfig.json` play the same role.
 - Commit step by step, with the milestone as the message prefix (`M1: ...`).
