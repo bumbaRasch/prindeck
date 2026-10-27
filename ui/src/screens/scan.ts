@@ -29,9 +29,13 @@ const els = {
   openFolder: mustQuery<HTMLButtonElement>("#open-folder"),
 };
 
+function render(state: AppState): void {
+  renderShell(state);
+  renderScanScreen(state);
+}
+
 export function renderScanScreen(state: AppState): void {
   normalizeSelections(state);
-  renderShell(state);
 
   const caps = state.caps;
   const input = caps === null ? null : activeInput(caps, state.source);
@@ -86,7 +90,7 @@ async function handleStart(state: AppState): Promise<void> {
   state.pages = 0;
   state.lastFile = null;
   state.canceling = false;
-  renderScanScreen(state);
+  render(state);
 
   try {
     const jobId = await startScan(params);
@@ -102,7 +106,7 @@ async function handleStart(state: AppState): Promise<void> {
     state.pages = 0;
   } finally {
     state.starting = false;
-    renderScanScreen(state);
+    render(state);
   }
 }
 
@@ -113,14 +117,14 @@ async function handleCancel(state: AppState): Promise<void> {
   }
 
   state.canceling = true;
-  renderScanScreen(state);
+  render(state);
 
   try {
     await cancelScan(jobId);
   } catch (error) {
     state.canceling = false;
     state.errorText = errorText(error);
-    renderScanScreen(state);
+    render(state);
   }
 }
 
@@ -129,7 +133,7 @@ async function handleOpenFolder(state: AppState): Promise<void> {
     await openScanFolder();
   } catch (error) {
     state.errorText = errorText(error);
-    renderScanScreen(state);
+    render(state);
   }
 }
 
@@ -152,7 +156,7 @@ export function initScanScreen(getState: () => AppState): void {
     if (isSource(value)) {
       getState().source = value;
     }
-    renderScanScreen(getState());
+    render(getState());
   });
 
   els.dpi.addEventListener("change", () => {
@@ -160,7 +164,7 @@ export function initScanScreen(getState: () => AppState): void {
     if (Number.isFinite(parsed)) {
       getState().dpi = parsed;
     }
-    renderScanScreen(getState());
+    render(getState());
   });
 
   els.color.addEventListener("change", () => {
@@ -168,7 +172,7 @@ export function initScanScreen(getState: () => AppState): void {
     if (isColorMode(value)) {
       getState().color = value;
     }
-    renderScanScreen(getState());
+    render(getState());
   });
 
   els.format.addEventListener("change", () => {
@@ -176,6 +180,6 @@ export function initScanScreen(getState: () => AppState): void {
     if (isDocFormat(value)) {
       getState().format = value;
     }
-    renderScanScreen(getState());
+    render(getState());
   });
 }
