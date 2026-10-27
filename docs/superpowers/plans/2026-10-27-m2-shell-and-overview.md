@@ -15,7 +15,8 @@
 - Every source file stays under 200 lines; split by domain, never name a module `utils`, `common` or `helpers` (AGENTS.md).
 - No comments in code. Identifiers carry meaning; explanations live in `docs/`.
 - All code strings — errors, logs, test messages — are English. Russian UI copy lives only in `ui/index.html`, `ui/src/labels.ts` and `*_LABEL` constants in Rust.
-- Commit gate, all green: `cargo test --workspace`, `cargo check --workspace --all-targets`, `cargo clippy --workspace --all-targets -- -D warnings`, `npm run typecheck`, `npm run build`, `npm run check:code-language`.
+- Commit gate, all green: `cargo test --workspace`, `cargo check --workspace --all-targets`, `cargo clippy --workspace --all-targets -- -D warnings`, `npm run typecheck`, `npm run build`, `npm run check:code-language`, `npm run check:line-count`.
+- The 200-line cap is enforced by `npm run check:line-count` over tracked sources in `src-tauri/src` and `ui`; a file over the cap must be listed in `scripts/line-count-baseline.txt` and leaves the list when it is split.
 - Device: `192.168.187.36`, community `public`, SNMP port 161, eSCL `http://192.168.187.36/eSCL/`.
 - Never start a scan or occupy the printer without an explicit request from the user; SNMP GETs are read-only and safe.
 - Window: default 900×680, `minWidth: 640`, `minHeight: 480`.
@@ -26,7 +27,7 @@
 
 ## Review Focus
 
-- **Printer off for hours while the app runs hidden.** The chip must not stay green: the next SNMP poll fails, the chip turns to `Нет связи`, and the numbers keep their old timestamp. Covered by `failed_poll_keeps_the_last_good_values` (Task 5) and the live offline check (Task 8/9).
+- **Printer off for hours while the app runs hidden.** The chip must not stay green: the next SNMP poll fails, the chip turns to `Нет связи`, and the numbers keep their old timestamp. Covered by `failed_poll_keeps_the_last_good_values` (Task 5) and the live offline check (Task 8/10).
 - **SNMP blocked by a firewall while eSCL works.** No "device unavailable" banner, scanning still works, the Overview says only that consumption data is unavailable. Covered by the wrong-host and blocked-port checks in Task 8 step 5.
 - **Window dragged to 640×480 with a long Russian label.** Nothing clips, the rail keeps every destination reachable by keyboard, the field grid collapses to one column. Covered by the visual check at the minimum size in Task 7/8.
 - **A scan finishes while the user is on Overview.** No auto-navigation, the scan row shows the dot, and returning to Scan shows the result and the path. Covered by the manual check in Task 8 step 5.
@@ -86,7 +87,8 @@ the same time; a task starts only after every task it consumes is merged.
 | 2 | 2, 4, 7 | 2 needs 1 (same `commands/mod.rs`), 4 needs 3, 7 needs 6 |
 | 3 | 5 | needs 2 and 4, and it is the only task editing `lib.rs` command wiring |
 | 4 | 8 | needs 5 (payload) and 7 (shell) |
-| 5 | 9 | needs the finished app for the live checks |
+| 5 | 9 | needs every finding from the Tasks 1–8 reviews recorded in the ledger |
+| 6 | 10 | needs 9 so the docs record the final state; needs the finished app for the live checks |
 
 A wave-1 task that fails its gate must be fixed before wave 2 starts, because
 wave 2 builds on its interfaces.
@@ -532,7 +534,45 @@ git commit -m "M2: device overview screen and scan indicator"
 
 ---
 
-### Task 9: Documentation and live verification
+### Task 9: Review-findings sweep before completion
+
+**Files:**
+- Modify: whatever the recorded findings name — Critical/Important in code with tests, Minor/Low in docs only (`PRD.md`, `docs/*.md`, this plan); `scripts/line-count-baseline.txt` when a split retires an entry
+
+**Interfaces:**
+- Consumes: every task review's findings from Tasks 1–8 as recorded in the SDD ledger; `npm run check:line-count` (Global Constraints).
+- Produces: a tree with no open Critical/Important findings, every Minor/Low finding fixed or answered in docs, and an accurate line-count baseline.
+
+- [ ] **Step 1: Enumerate the findings**
+
+Collect every Critical/Important/Minor finding from the Tasks 1–8 review packages (source: the SDD ledger). A finding already resolved stays listed with its resolution.
+
+- [ ] **Step 2: Fix Critical and Important in code**
+
+Each fix lands with its covering tests run; no behaviour change beyond what the finding demands.
+
+- [ ] **Step 3: Resolve Minor and Low in docs only**
+
+No code edits for Minor/Low: answer each in `docs/` or this plan — normalize wording, record the decision, note the accepted trade-off. If a Minor finding cannot be answered without code, that fact promotes it to Important and it is handled in Step 2.
+
+- [ ] **Step 4: Prune the line-count baseline**
+
+Run `npm run check:line-count`; remove baseline entries for files that dropped to 200 lines or below; add none.
+
+- [ ] **Step 5: Run the whole gate**
+
+Every command in the Global Constraints gate — green.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add <the paths the fixes touched>
+git commit -m "M2: review-findings sweep"
+```
+
+---
+
+### Task 10: Documentation and live verification
 
 **Files:**
 - Modify: `PRD.md` (§6, §8, §9, §12, §13.7), `README.md`, `docs/oids-l2710dw.md` (multi-varbind note), `docs/superpowers/plans/2026-10-27-m2-shell-and-overview.md`
@@ -545,7 +585,7 @@ Extend `scripts/probe-snmp.mjs` with one batched GET; run it against the device;
 
 - [ ] **Step 3: Run the whole gate and the visual check**
 
-`cargo test`, `cargo check`, clippy, `npm run typecheck`, `npm run build`, `npm run check:code-language`, then the `visual-check` subagent at 900×680 and 640×480 in both themes.
+`cargo test`, `cargo check`, clippy, `npm run typecheck`, `npm run build`, `npm run check:code-language`, `npm run check:line-count`, then the `visual-check` subagent at 900×680 and 640×480 in both themes.
 
 - [ ] **Step 4: Commit**
 
