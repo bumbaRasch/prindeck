@@ -1,0 +1,158 @@
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+#shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  padding: 20px 12px;
+  overflow-y: auto;
+  background: var(--sidebar-bg);
+  border-inline-end: 1px solid var(--border);
+}
+
+.app-name {
+  padding-inline: 8px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.device-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+  padding-inline: 8px;
+}
+
+.device-status-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.device-status-dot[data-tone="busy"] {
+  background: var(--primary);
+}
+
+.device-status-dot[data-tone="ok"] {
+  background: var(--ok);
+}
+
+.device-status-dot[data-tone="warn"] {
+  background: var(--warn-text);
+}
+
+.device-status-dot[data-tone="error"] {
+  background: var(--danger-text);
+}
+
+.device-status-model {
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: color-mix(in srgb, var(--nav-active-bg) 55%, transparent);
+}
+
+.nav-item[aria-current="page"] {
+  background: var(--nav-active-bg);
+  color: var(--nav-active-text);
+  box-shadow: inset 3px 0 0 var(--nav-accent);
+}
+
+.nav-icon {
+  flex: none;
+}
+
+.nav-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nav-item[data-active]::after {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-inline-start: auto;
+  border-radius: 50%;
+  background: var(--nav-accent);
+}
+
+@media (max-width: 819px) {
+  :root {
+    --sidebar-w: 64px;
+  }
+
+  .sidebar {
+    padding-inline: 8px;
+  }
+
+  .app-name {
+    display: none;
+  }
+
+  .device-status {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .device-status-model {
+    display: none;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .nav-label {
+    display: none;
+  }
+}
