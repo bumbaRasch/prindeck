@@ -50,6 +50,11 @@ fn device_status_maps_to_ok_and_offline() {
     assert_eq!(TrayState::from_status(&status(false)), TrayState::Offline);
 }
 
+#[test]
+fn navigate_payload_is_the_bare_scan_screen_literal() {
+    assert_eq!(super::SCAN_SCREEN, "scan");
+}
+
 fn status(ok: bool) -> DeviceStatus {
     DeviceStatus {
         ok,

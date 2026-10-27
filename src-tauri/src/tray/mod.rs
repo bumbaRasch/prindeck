@@ -6,7 +6,6 @@ mod icons;
 #[cfg(test)]
 mod tests;
 
-use serde::Serialize;
 use tauri::{
     App, AppHandle, Emitter, Manager,
     menu::{Menu, MenuItem},
@@ -34,11 +33,6 @@ const MENU_SCAN_LABEL: &str = "Скан";
 const MENU_PANEL_LABEL: &str = "Открыть панель";
 const MENU_QUIT_LABEL: &str = "Выход";
 
-#[derive(Debug, Clone, Serialize)]
-struct NavigateEvent {
-    screen: &'static str,
-}
-
 pub fn show_main_window(app: &AppHandle) {
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
         tracing::error!(window = MAIN_WINDOW, "main window not found");
@@ -59,10 +53,7 @@ pub fn show_main_window(app: &AppHandle) {
 fn open_scan_screen(app: &AppHandle) {
     show_main_window(app);
 
-    let payload = NavigateEvent {
-        screen: SCAN_SCREEN,
-    };
-    if let Err(error) = app.emit(EVENT_NAVIGATE, payload) {
+    if let Err(error) = app.emit(EVENT_NAVIGATE, SCAN_SCREEN) {
         tracing::debug!(%error, "failed to emit the navigate event");
     }
 }
