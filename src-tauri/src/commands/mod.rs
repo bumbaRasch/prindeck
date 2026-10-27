@@ -146,9 +146,8 @@ pub use caps::{
     __tauri_command_name_open_scan_folder,
 };
 pub use print::{
-    __cmd__cancel_print, __cmd__get_queue, __cmd__print_file,
-    __tauri_command_name_cancel_print, __tauri_command_name_get_queue,
-    __tauri_command_name_print_file,
+    __cmd__cancel_print, __cmd__get_queue, __cmd__print_file, __tauri_command_name_cancel_print,
+    __tauri_command_name_get_queue, __tauri_command_name_print_file,
 };
 pub use scan::{
     __cmd__cancel_scan, __cmd__start_scan, __tauri_command_name_cancel_scan,

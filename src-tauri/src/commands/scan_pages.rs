@@ -9,9 +9,16 @@ const MAX_PAUSE: Duration = Duration::from_secs(1);
 
 #[derive(Debug)]
 pub enum PagesOutcome {
-    Complete { pages: Vec<Vec<u8>> },
-    Canceled { pages: Vec<Vec<u8>> },
-    Failed { pages: Vec<Vec<u8>>, error: EsclError },
+    Complete {
+        pages: Vec<Vec<u8>>,
+    },
+    Canceled {
+        pages: Vec<Vec<u8>>,
+    },
+    Failed {
+        pages: Vec<Vec<u8>>,
+        error: EsclError,
+    },
 }
 
 pub fn next_delay(prev_request: Duration) -> Duration {

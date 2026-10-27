@@ -6,9 +6,7 @@ use tauri::{AppHandle, Manager};
 
 use super::scan_files::write_pages;
 use super::scan_pages::{PagesOutcome, fetch_pages};
-use super::{
-    AppState, ScanFailure, ScanPhase, emit_done, emit_error, emit_progress, user_message,
-};
+use super::{AppState, ScanFailure, ScanPhase, emit_done, emit_error, emit_progress, user_message};
 use crate::escl::{DocFormat, EsclClient};
 
 #[derive(Debug)]

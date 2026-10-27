@@ -1,8 +1,8 @@
 use std::fs;
 
 use super::{dir_has_no_part_files, jpeg_page, sample_time, unique_temp_dir};
-use crate::commands::scan_files::{page_file_names, part_path, unique_path, write_pages};
 use crate::commands::ScanErrorKind;
+use crate::commands::scan_files::{page_file_names, part_path, unique_path, write_pages};
 use crate::escl::DocFormat;
 
 const JOB_ID: &str = "/eSCL/ScanJobs/job-a";
@@ -57,10 +57,7 @@ fn partial_names_avoid_collisions() {
     let base = "scan-20261027-141530-partial.pdf";
 
     let first = unique_path(&dir, base);
-    assert_eq!(
-        first.file_name().and_then(|name| name.to_str()),
-        Some(base)
-    );
+    assert_eq!(first.file_name().and_then(|name| name.to_str()), Some(base));
 
     fs::write(&first, b"%PDF-1.4").expect("write the first file");
 
@@ -82,7 +79,10 @@ fn builds_part_path_from_job_id() {
         Some(".scan-abc-123.part")
     );
 
-    let weird = part_path(std::path::Path::new("/tmp/scans"), "/eSCL/ScanJobs/../../eth");
+    let weird = part_path(
+        std::path::Path::new("/tmp/scans"),
+        "/eSCL/ScanJobs/../../eth",
+    );
     assert_eq!(
         weird.file_name().and_then(|name| name.to_str()),
         Some(".scan-eth.part")
@@ -116,7 +116,10 @@ fn write_pages_writes_unique_page_files() {
         .collect();
     assert_eq!(
         names,
-        vec!["scan-20261027-141530-p1-2.jpg", "scan-20261027-141530-p2.jpg"]
+        vec![
+            "scan-20261027-141530-p1-2.jpg",
+            "scan-20261027-141530-p2.jpg"
+        ]
     );
     assert_eq!(
         fs::read(&files[0]).expect("read the first page"),

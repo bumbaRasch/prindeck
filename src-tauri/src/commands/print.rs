@@ -115,7 +115,10 @@ pub async fn get_queue(state: State<'_, AppState>) -> Result<Vec<CupsJob>, Strin
 #[tauri::command]
 pub async fn cancel_print(state: State<'_, AppState>, job_id: String) -> Result<(), String> {
     if !job_belongs_to_queue(&job_id, &state.config.cups_queue) {
-        tracing::warn!(job_id, "refused to cancel a job outside the configured queue");
+        tracing::warn!(
+            job_id,
+            "refused to cancel a job outside the configured queue"
+        );
         return Err(PRINT_JOB_OUTSIDE_QUEUE_LABEL.to_string());
     }
 

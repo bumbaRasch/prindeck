@@ -105,9 +105,7 @@ fn storage_failure_over_files_is_done_partial() {
 
     match terminal_for(&outcome, &written_files(), Some(failure)) {
         TerminalEvent::Done {
-            partial,
-            warning,
-            ..
+            partial, warning, ..
         } => {
             assert!(partial);
             assert_eq!(warning.as_deref(), Some("failed to save the file: full"));

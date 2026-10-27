@@ -88,10 +88,12 @@ async fn canceled_keeps_pages() {
         }
         other => panic!("expected a done terminal, got {other:?}"),
     }
-    assert!(server
-        .request_lines()
-        .iter()
-        .any(|line| line.starts_with("DELETE /eSCL/ScanJobs/test-job ")));
+    assert!(
+        server
+            .request_lines()
+            .iter()
+            .any(|line| line.starts_with("DELETE /eSCL/ScanJobs/test-job "))
+    );
     assert!(dir_has_no_part_files(&dir));
 
     let _ = std::fs::remove_dir_all(&dir);
