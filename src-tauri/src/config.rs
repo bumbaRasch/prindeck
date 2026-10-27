@@ -76,7 +76,7 @@ impl Config {
 
         if self.scan_dir.as_os_str().is_empty() {
             return Err(ConfigError::InvalidScanDir(
-                "путь к папке сканов не задан".to_string(),
+                "the scan folder path is not set".to_string(),
             ));
         }
 
@@ -87,7 +87,7 @@ impl Config {
     pub fn ensure_scan_dir(&self) -> Result<(), ConfigError> {
         if self.scan_dir.as_os_str().is_empty() {
             return Err(ConfigError::InvalidScanDir(
-                "путь к папке сканов не задан".to_string(),
+                "the scan folder path is not set".to_string(),
             ));
         }
 
@@ -98,7 +98,7 @@ impl Config {
         validate_host(&self.device.host)?;
 
         reqwest::Url::parse(&format!("http://{}/eSCL/", self.device.host.trim()))
-            .map_err(|error| ConfigError::InvalidHost(format!("не удалось построить URL: {error}")))
+            .map_err(|error| ConfigError::InvalidHost(format!("failed to build the URL: {error}")))
     }
 }
 
@@ -114,31 +114,31 @@ fn validate_host(host: &str) -> Result<(), ConfigError> {
 
     if host.is_empty() {
         return Err(ConfigError::InvalidHost(
-            "адрес устройства не задан".to_string(),
+            "the device address is not set".to_string(),
         ));
     }
 
     if host.contains("://") {
         return Err(ConfigError::InvalidHost(
-            "адрес должен быть вида host или host:port, без схемы".to_string(),
+            "the address must be host or host:port, without a scheme".to_string(),
         ));
     }
 
     if host.contains('/') || host.contains('\\') {
         return Err(ConfigError::InvalidHost(
-            "адрес не должен содержать слэши".to_string(),
+            "the address must not contain slashes".to_string(),
         ));
     }
 
     if host.chars().any(char::is_whitespace) {
         return Err(ConfigError::InvalidHost(
-            "адрес не должен содержать пробелы".to_string(),
+            "the address must not contain spaces".to_string(),
         ));
     }
 
     if host.chars().any(|ch| matches!(ch, '@' | '?' | '#')) {
         return Err(ConfigError::InvalidHost(
-            "адрес должен содержать только host или host:port".to_string(),
+            "the address must contain only host or host:port".to_string(),
         ));
     }
 
@@ -158,18 +158,18 @@ pub enum ConfigError {
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConfigError::Io(error) => write!(f, "ошибка ввода-вывода: {error}"),
-            ConfigError::Serde(error) => write!(f, "ошибка разбора конфига: {error}"),
+            ConfigError::Io(error) => write!(f, "I/O error: {error}"),
+            ConfigError::Serde(error) => write!(f, "config parse error: {error}"),
             ConfigError::InvalidHost(message) => {
-                write!(f, "некорректный адрес устройства: {message}")
+                write!(f, "invalid device address: {message}")
             }
             ConfigError::InvalidScanDir(message) => {
-                write!(f, "некорректная папка сканов: {message}")
+                write!(f, "invalid scan folder: {message}")
             }
             ConfigError::NoConfigDir => {
-                write!(f, "не удалось определить каталог конфигурации")
+                write!(f, "failed to determine the config directory")
             }
-            ConfigError::NoHomeDir => write!(f, "не удалось определить домашний каталог"),
+            ConfigError::NoHomeDir => write!(f, "failed to determine the home directory"),
         }
     }
 }

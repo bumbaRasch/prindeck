@@ -23,11 +23,11 @@ pub const JOB_PATH_PREFIX: &str = "/eSCL/ScanJobs/";
 const FALLBACK_BASE_URL: &str = "http://127.0.0.1:9/eSCL/";
 
 const ADF_NOT_SUPPORTED: &str =
-    "устройство вернуло несколько страниц: автоподатчик в этой версии не поддерживается";
-const UNEXPECTED_FORMAT: &str = "устройство вернуло неожиданный формат";
-const NO_DOCUMENT: &str = "устройство не вернуло документ";
-const INVALID_JOB_ID: &str = "некорректный идентификатор задания";
-const JOB_NOT_FOUND: &str = "задание не найдено";
+    "the device returned more than one page: the feeder is not supported in this version";
+const UNEXPECTED_FORMAT: &str = "the device returned an unexpected format";
+const NO_DOCUMENT: &str = "the device returned no document";
+const INVALID_JOB_ID: &str = "invalid job id";
+const JOB_NOT_FOUND: &str = "job not found";
 
 pub struct AppState {
     pub config: Config,
@@ -53,10 +53,10 @@ impl AppState {
 
 fn resolve_state() -> (Config, EsclClient, Option<String>) {
     let loaded = Config::default_path()
-        .map_err(|error| format!("не удалось определить путь к конфигу: {error}"))
+        .map_err(|error| format!("failed to resolve the config path: {error}"))
         .and_then(|path| {
             Config::load_or_create(&path)
-                .map_err(|error| format!("не удалось загрузить конфиг {}: {error}", path.display()))
+                .map_err(|error| format!("failed to load the config {}: {error}", path.display()))
         });
 
     let mut problems: Vec<String> = Vec::new();
@@ -70,7 +70,7 @@ fn resolve_state() -> (Config, EsclClient, Option<String>) {
     }
 
     let fallback = fallback_config();
-    problems.push("использованы настройки по умолчанию".to_string());
+    problems.push("default settings are in use".to_string());
 
     match build_client(&fallback) {
         Ok(client) => (fallback, client, Some(problems.join("; "))),
@@ -101,7 +101,7 @@ fn fallback_client() -> EsclClient {
 fn lock<T>(mutex: &Mutex<T>) -> Result<MutexGuard<'_, T>, String> {
     mutex
         .lock()
-        .map_err(|_| "внутренняя ошибка: состояние заблокировано после сбоя".to_string())
+        .map_err(|_| "internal error: the state is locked after a panic".to_string())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -198,21 +198,19 @@ pub async fn start_scan(
     state: State<'_, AppState>,
     params: ScanParams,
 ) -> Result<String, String> {
-    let status = state
-        .client
-        .status()
-        .await
-        .map_err(|error| user_message(&error))?;
+    let status = state.client.status().await.map_err(|error| {
+        tracing::warn!(%error, "scanner status request failed");
+        user_message(&error)
+    })?;
 
     if status.state != ScannerState::Idle {
-        return Err("устройство занято".to_string());
+        return Err("the device is busy".to_string());
     }
 
-    let job = state
-        .client
-        .start(&params)
-        .await
-        .map_err(|error| user_message(&error))?;
+    let job = state.client.start(&params).await.map_err(|error| {
+        tracing::warn!(%error, "scan start request failed");
+        user_message(&error)
+    })?;
     let job_id = job.path().to_string();
 
     let duplicate = {
@@ -226,8 +224,17 @@ pub async fn start_scan(
 
     if duplicate {
         best_effort_cancel(&state.client, &job).await;
-        return Err("такое задание уже выполняется".to_string());
+        return Err("this job is already running".to_string());
     }
+
+    tracing::info!(
+        %job_id,
+        source = ?params.source,
+        dpi = params.dpi,
+        color = ?params.color,
+        format = ?params.format,
+        "scan started"
+    );
 
     emit_progress(&app, &job_id, ScanPhase::Created, 0);
 
@@ -253,7 +260,10 @@ pub async fn cancel_scan(state: State<'_, AppState>, job_id: String) -> Result<(
 
     match state.client.cancel(&job).await {
         Ok(CancelOutcome::Canceled | CancelOutcome::AlreadyFinished) => Ok(()),
-        Err(error) => Err(user_message(&error)),
+        Err(error) => {
+            tracing::warn!(%error, %job_id, "scan cancel request failed");
+            Err(user_message(&error))
+        }
     }
 }
 
@@ -268,7 +278,7 @@ pub fn open_scan_folder(app: AppHandle, state: State<'_, AppState>) -> Result<()
 
     app.opener()
         .open_path(path, None::<&str>)
-        .map_err(|error| format!("не удалось открыть папку сканов: {error}"))
+        .map_err(|error| format!("failed to open the scan folder: {error}"))
 }
 
 #[tauri::command]
@@ -278,19 +288,19 @@ pub fn get_startup_error(state: State<'_, AppState>) -> Option<String> {
 
 pub fn user_message(error: &EsclError) -> String {
     match error {
-        EsclError::Http { status: 503, .. } => "устройство занято".to_string(),
+        EsclError::Http { status: 503, .. } => "the device is busy".to_string(),
         EsclError::Http { status: 409, .. } => {
-            "устройство не поддерживает такую комбинацию настроек".to_string()
+            "the device does not support this combination of settings".to_string()
         }
         EsclError::Http { status: 500, body } if mentions_feeder(body) => {
-            "в автоподатчике нет бумаги".to_string()
+            "the feeder is out of paper".to_string()
         }
-        EsclError::Timeout => "устройство не отвечает".to_string(),
-        EsclError::Transport(_) => "нет связи с устройством".to_string(),
+        EsclError::Timeout => "the device is not responding".to_string(),
+        EsclError::Transport(_) => "no connection to the device".to_string(),
         EsclError::InvalidParams(message) => message.clone(),
-        EsclError::Http { status, .. } => format!("устройство ответило ошибкой HTTP {status}"),
-        EsclError::Parse(_) => "устройство вернуло неожиданный ответ".to_string(),
-        EsclError::InvalidUrl(_) => "некорректный адрес устройства".to_string(),
+        EsclError::Http { status, .. } => format!("the device returned HTTP {status}"),
+        EsclError::Parse(_) => "the device returned an unexpected response".to_string(),
+        EsclError::InvalidUrl(_) => "invalid device address".to_string(),
     }
 }
 
@@ -409,13 +419,16 @@ async fn run_scan(
 
     match outcome {
         ScanOutcome::Done(file) => {
+            tracing::info!(%job_id, path = %file.display(), "scan saved");
             emit_done(&app, &job_id, &file);
             emit_progress(&app, &job_id, ScanPhase::Done, 1);
         }
         ScanOutcome::Canceled => {
+            tracing::info!(%job_id, "scan canceled");
             emit_progress(&app, &job_id, ScanPhase::Canceled, 0);
         }
         ScanOutcome::Failed(message) => {
+            tracing::warn!(%job_id, %message, "scan failed");
             emit_error(&app, &job_id, message);
         }
     }
@@ -451,7 +464,7 @@ async fn fetch_document(
                 if let Err(error) = fs::write(&part, &bytes) {
                     remove_part(&part);
                     best_effort_cancel(client, job).await;
-                    return ScanOutcome::Failed(format!("не удалось сохранить файл: {error}"));
+                    return ScanOutcome::Failed(format!("failed to save the file: {error}"));
                 }
 
                 written = true;
@@ -465,7 +478,7 @@ async fn fetch_document(
                 let target = unique_scan_path(scan_dir, Local::now(), format);
                 if let Err(error) = fs::rename(&part, &target) {
                     remove_part(&part);
-                    return ScanOutcome::Failed(format!("не удалось сохранить файл: {error}"));
+                    return ScanOutcome::Failed(format!("failed to save the file: {error}"));
                 }
 
                 return ScanOutcome::Done(target);
@@ -537,25 +550,28 @@ mod tests {
 
     #[test]
     fn user_message_maps_device_errors() {
-        assert_eq!(user_message(&sample_error(503, "")), "устройство занято");
+        assert_eq!(user_message(&sample_error(503, "")), "the device is busy");
         assert_eq!(
             user_message(&sample_error(409, "")),
-            "устройство не поддерживает такую комбинацию настроек"
+            "the device does not support this combination of settings"
         );
         assert_eq!(
             user_message(&sample_error(500, "<e>Feeder empty</e>")),
-            "в автоподатчике нет бумаги"
+            "the feeder is out of paper"
         );
-        assert_eq!(user_message(&EsclError::Timeout), "устройство не отвечает");
+        assert_eq!(
+            user_message(&EsclError::Timeout),
+            "the device is not responding"
+        );
         assert_eq!(
             user_message(&EsclError::Transport("connect refused".to_string())),
-            "нет связи с устройством"
+            "no connection to the device"
         );
         assert_eq!(
             user_message(&EsclError::InvalidParams(
-                "разрешение 150 dpi не поддерживается устройством".to_string()
+                "the device does not support 150 dpi".to_string()
             )),
-            "разрешение 150 dpi не поддерживается устройством"
+            "the device does not support 150 dpi"
         );
     }
 
@@ -563,11 +579,11 @@ mod tests {
     fn user_message_keeps_http_code_for_other_statuses() {
         assert_eq!(
             user_message(&sample_error(418, "")),
-            "устройство ответило ошибкой HTTP 418"
+            "the device returned HTTP 418"
         );
         assert_eq!(
             user_message(&sample_error(500, "<e>internal</e>")),
-            "устройство ответило ошибкой HTTP 500"
+            "the device returned HTTP 500"
         );
     }
 
@@ -697,12 +713,12 @@ mod tests {
 
         let error = serde_json::to_value(ScanError {
             job_id: job_id.to_string(),
-            message: "устройство занято".to_string(),
+            message: "the device is busy".to_string(),
         })
         .expect("error serializes");
         assert_eq!(
             error,
-            json!({ "jobId": job_id, "message": "устройство занято" })
+            json!({ "jobId": job_id, "message": "the device is busy" })
         );
     }
 

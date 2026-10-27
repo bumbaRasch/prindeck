@@ -9,6 +9,13 @@ import {
   startScan,
   type UnlistenFn,
 } from "./api";
+import {
+  COLOR_LABELS,
+  FORMAT_LABELS,
+  PAGE_FORMS,
+  SOURCE_LABELS,
+  TEXT,
+} from "./labels";
 import type {
   ColorMode,
   DocFormat,
@@ -91,22 +98,6 @@ const state: ScreenState = {
   lastFile: null,
 };
 
-const SOURCE_LABELS: Record<Source, string> = {
-  Platen: "Планшет",
-  Feeder: "Автоподатчик",
-};
-
-const COLOR_LABELS: Record<ColorMode, string> = {
-  BlackAndWhite1: "Чёрно-белый",
-  Grayscale8: "Оттенки серого",
-  RGB24: "Цветной",
-};
-
-const FORMAT_LABELS: Record<DocFormat, string> = {
-  "application/pdf": "PDF",
-  "image/jpeg": "JPEG",
-};
-
 const DPI_PREFERENCE = [300, 200, 600, 100];
 const COLOR_PREFERENCE: ColorMode[] = [
   "Grayscale8",
@@ -138,7 +129,7 @@ function errorText(error: unknown): string {
   if (error instanceof Error && error.message !== "") {
     return error.message;
   }
-  return "не удалось выполнить запрос к устройству";
+  return TEXT.requestFailed;
 }
 
 function pickFirst<T>(available: readonly T[], preferred: readonly T[]): T | null {
@@ -158,12 +149,12 @@ function pluralPages(count: number): string {
   const mod10 = count % 10;
   const mod100 = count % 100;
   if (mod10 === 1 && mod100 !== 11) {
-    return "страница";
+    return PAGE_FORMS.one;
   }
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-    return "страницы";
+    return PAGE_FORMS.few;
   }
-  return "страниц";
+  return PAGE_FORMS.many;
 }
 
 function pickDpi(input: InputCaps, current: number | null): number | null {
@@ -252,37 +243,37 @@ function fillSelect(
 
 function statusView(): { text: string; tone: Tone } {
   if (state.capsError !== null) {
-    return { text: "устройство недоступно — проверьте питание и сеть", tone: "error" };
+    return { text: TEXT.deviceUnavailable, tone: "error" };
   }
   if (state.errorText !== null) {
     return { text: state.errorText, tone: "error" };
   }
   if (state.starting) {
-    return { text: "создаём задание…", tone: "busy" };
+    return { text: TEXT.creatingJob, tone: "busy" };
   }
   if (state.capsLoading && state.caps === null) {
-    return { text: "проверяем устройство…", tone: "busy" };
+    return { text: TEXT.checkingDevice, tone: "busy" };
   }
 
   const phase = state.phase;
   switch (phase) {
     case "created":
-      return { text: "задание создано…", tone: "busy" };
+      return { text: TEXT.jobCreated, tone: "busy" };
     case "scanning": {
       const pages =
         state.pages > 0
           ? ` · ${state.pages} ${pluralPages(state.pages)}`
           : "";
-      return { text: `сканирует…${pages}`, tone: "busy" };
+      return { text: `${TEXT.scanning}${pages}`, tone: "busy" };
     }
     case "done":
-      return { text: "готово", tone: "ok" };
+      return { text: TEXT.done, tone: "ok" };
     case "canceled":
-      return { text: "отменено", tone: "warn" };
+      return { text: TEXT.canceled, tone: "warn" };
     case null:
       return state.caps === null
         ? { text: "", tone: "idle" }
-        : { text: "готов к сканированию", tone: "idle" };
+        : { text: TEXT.ready, tone: "idle" };
   }
 }
 
@@ -341,7 +332,7 @@ function render(): void {
 
   const showFormatHint = blackAndWhite && jpegAvailable;
   els.formatHint.hidden = !showFormatHint;
-  els.formatHint.textContent = showFormatHint ? "ч/б — только PDF" : "";
+  els.formatHint.textContent = showFormatHint ? TEXT.formatHint : "";
 
   els.start.disabled =
     caps === null ||
@@ -351,7 +342,7 @@ function render(): void {
     currentParams() === null;
   els.cancel.hidden = state.jobId === null;
   els.cancel.disabled = state.canceling;
-  els.cancel.textContent = state.canceling ? "Отмена…" : "Отмена";
+  els.cancel.textContent = state.canceling ? TEXT.canceling : TEXT.cancel;
 
   els.startupBanner.hidden = state.startupError === null;
   els.startupBannerText.textContent = state.startupError ?? "";

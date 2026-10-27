@@ -277,20 +277,22 @@ pub enum EsclError {
 impl fmt::Display for EsclError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EsclError::Transport(message) => write!(f, "ошибка связи со сканером: {message}"),
-            EsclError::Timeout => write!(f, "сканер не ответил вовремя"),
+            EsclError::Transport(message) => write!(f, "scanner connection error: {message}"),
+            EsclError::Timeout => write!(f, "the scanner did not respond in time"),
             EsclError::Http { status, body } => {
                 if body.is_empty() {
-                    write!(f, "сканер ответил HTTP {status}")
+                    write!(f, "the scanner returned HTTP {status}")
                 } else {
-                    write!(f, "сканер ответил HTTP {status}: {body}")
+                    write!(f, "the scanner returned HTTP {status}: {body}")
                 }
             }
-            EsclError::Parse(message) => write!(f, "не удалось разобрать ответ сканера: {message}"),
-            EsclError::InvalidParams(message) => {
-                write!(f, "недопустимые параметры сканирования: {message}")
+            EsclError::Parse(message) => {
+                write!(f, "failed to parse the scanner response: {message}")
             }
-            EsclError::InvalidUrl(message) => write!(f, "некорректный адрес запроса: {message}"),
+            EsclError::InvalidParams(message) => {
+                write!(f, "invalid scan parameters: {message}")
+            }
+            EsclError::InvalidUrl(message) => write!(f, "invalid request URL: {message}"),
         }
     }
 }
@@ -333,34 +335,34 @@ impl ScanParams {
         let input_caps = match self.source {
             Source::Platen => &caps.platen,
             Source::Feeder => caps.adf.as_ref().ok_or_else(|| {
-                EsclError::InvalidParams("автоподатчик не поддерживается устройством".to_string())
+                EsclError::InvalidParams("the device does not support the feeder".to_string())
             })?,
         };
 
         if !input_caps.resolutions.contains(&self.dpi) {
             return Err(EsclError::InvalidParams(format!(
-                "разрешение {} dpi не поддерживается устройством",
+                "the device does not support {} dpi",
                 self.dpi
             )));
         }
 
         if !input_caps.color_modes.contains(&self.color) {
             return Err(EsclError::InvalidParams(format!(
-                "цветовой режим {} не поддерживается устройством",
+                "the device does not support the {} color mode",
                 self.color
             )));
         }
 
         if !input_caps.formats.contains(&self.format) {
             return Err(EsclError::InvalidParams(format!(
-                "формат {} не поддерживается устройством",
+                "the device does not support the {} format",
                 self.format
             )));
         }
 
         if self.color == ColorMode::BlackAndWhite1 && self.format == DocFormat::Jpeg {
             return Err(EsclError::InvalidParams(
-                "чёрно-белый режим поддерживается только в PDF, не в JPEG".to_string(),
+                "the black-and-white mode is available only for PDF, not JPEG".to_string(),
             ));
         }
 
@@ -378,14 +380,14 @@ impl EsclClient {
     pub fn new(mut base: Url) -> Result<Self, EsclError> {
         if !matches!(base.scheme(), "http" | "https") {
             return Err(EsclError::InvalidUrl(format!(
-                "поддерживается только http/https, получено {}",
+                "only http/https is supported, got {}",
                 base.scheme()
             )));
         }
 
         if base.host_str().is_none() {
             return Err(EsclError::InvalidUrl(
-                "в адресе сканера нет хоста".to_string(),
+                "the scanner URL has no host".to_string(),
             ));
         }
 
@@ -420,7 +422,7 @@ impl EsclClient {
         let input_caps = match params.source {
             Source::Platen => &caps.platen,
             Source::Feeder => caps.adf.as_ref().ok_or_else(|| {
-                EsclError::InvalidParams("автоподатчик не поддерживается устройством".to_string())
+                EsclError::InvalidParams("the device does not support the feeder".to_string())
             })?,
         };
         let region = Region::from_caps(input_caps);
@@ -445,9 +447,11 @@ impl EsclClient {
         let location = response
             .headers()
             .get(reqwest::header::LOCATION)
-            .ok_or_else(|| EsclError::Parse("ответ 201 без заголовка Location".to_string()))?
+            .ok_or_else(|| {
+                EsclError::Parse("a 201 response without a Location header".to_string())
+            })?
             .to_str()
-            .map_err(|error| EsclError::Parse(format!("Location не является строкой: {error}")))?;
+            .map_err(|error| EsclError::Parse(format!("Location is not a string: {error}")))?;
 
         resolve_job_url(&self.base, location)
     }
@@ -495,7 +499,7 @@ impl EsclClient {
         }
 
         String::from_utf8(body.to_vec())
-            .map_err(|error| EsclError::Parse(format!("ответ не в UTF-8: {error}")))
+            .map_err(|error| EsclError::Parse(format!("the response is not UTF-8: {error}")))
     }
 
     fn endpoint(&self, resource: &str) -> Result<Url, EsclError> {
@@ -514,9 +518,7 @@ fn resolve_job_url(base: &Url, location: &str) -> Result<Url, EsclError> {
     let location = location.trim();
 
     if location.is_empty() {
-        return Err(EsclError::InvalidUrl(
-            "пустой заголовок Location".to_string(),
-        ));
+        return Err(EsclError::InvalidUrl("empty Location header".to_string()));
     }
 
     if let Ok(url) = Url::parse(location) {
@@ -697,9 +699,9 @@ fn parse_capabilities(xml: &str) -> Result<ScanCaps, EsclError> {
     }
 
     let make_and_model = make_and_model
-        .ok_or_else(|| EsclError::Parse("в capabilities нет MakeAndModel".to_string()))?;
+        .ok_or_else(|| EsclError::Parse("no MakeAndModel in capabilities".to_string()))?;
     let platen =
-        platen.ok_or_else(|| EsclError::Parse("в capabilities нет PlatenInputCaps".to_string()))?;
+        platen.ok_or_else(|| EsclError::Parse("no PlatenInputCaps in capabilities".to_string()))?;
 
     Ok(ScanCaps {
         make_and_model,
@@ -805,7 +807,7 @@ fn parse_status(xml: &str) -> Result<ScannerStatus, EsclError> {
         }
     }
 
-    let state = state.ok_or_else(|| EsclError::Parse("в статусе нет pwg:State".to_string()))?;
+    let state = state.ok_or_else(|| EsclError::Parse("no pwg:State in the status".to_string()))?;
 
     Ok(ScannerStatus {
         state,
@@ -817,7 +819,7 @@ fn parse_status(xml: &str) -> Result<ScannerStatus, EsclError> {
 fn parse_u32(value: &str, field: &str) -> Result<u32, EsclError> {
     value
         .parse::<u32>()
-        .map_err(|error| EsclError::Parse(format!("{field}: не число ({value}): {error}")))
+        .map_err(|error| EsclError::Parse(format!("{field}: not a number ({value}): {error}")))
 }
 
 fn push_unique<T: PartialEq>(values: &mut Vec<T>, value: T) {

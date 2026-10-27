@@ -11,6 +11,9 @@ const MAIN_WINDOW: &str = "main";
 const MENU_SHOW: &str = "show";
 const MENU_QUIT: &str = "quit";
 
+const MENU_SHOW_LABEL: &str = "Показать окно";
+const MENU_QUIT_LABEL: &str = "Выход";
+
 pub fn show_main_window(app: &AppHandle) {
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
         tracing::error!(window = MAIN_WINDOW, "main window not found");
@@ -34,8 +37,8 @@ pub fn setup(app: &App) -> Result<(), Box<dyn Error>> {
         .cloned()
         .ok_or("the app icon is missing from the configuration")?;
 
-    let show = MenuItem::with_id(app, MENU_SHOW, "Показать окно", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, MENU_QUIT, "Выход", true, None::<&str>)?;
+    let show = MenuItem::with_id(app, MENU_SHOW, MENU_SHOW_LABEL, true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, MENU_QUIT, MENU_QUIT_LABEL, true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
 
     TrayIconBuilder::with_id("main")

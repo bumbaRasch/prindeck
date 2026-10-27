@@ -8,8 +8,8 @@ current plan in `docs/superpowers/plans/`.
 
 - Rust: `export PATH="$HOME/.cargo/bin:$PATH"` (cargo/rustc 1.99.1).
 - Before committing: `cargo test --workspace`,
-  `cargo check --workspace --all-targets`, `npm run typecheck`, `npm run build`
-  — all green, no warnings.
+  `cargo check --workspace --all-targets`, `npm run typecheck`, `npm run build`,
+  `npm run check:code-language` — all green, no warnings.
 - Device: `192.168.187.36`, eSCL `http://192.168.187.36/eSCL/`, scans in
   `~/Documents/scans`, config at `~/.config/prindeck/config.json`.
 - The printer is physical: a scan takes ~8 s and occupies the device. Start a
