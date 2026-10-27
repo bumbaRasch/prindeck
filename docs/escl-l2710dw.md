@@ -176,6 +176,7 @@ Observed values:
 
 - `pwg:State` — `Idle`, `Processing`.
 - `scan:AdfState` — `ScannerAdfEmpty` (we have not seen others: there is no paper in the ADF).
+  *(M2.5, §11: with sheets loaded the value is `ScannerAdfLoaded` — observed 27.10.2026.)*
 - `pwg:JobState` — `Pending`, `Processing`, `Completed`, `Canceled`.
 - `pwg:JobStateReason` — `JobScanning`, `JobCompletedSuccessfully`,
   `JobCanceledAtDevice`, `JobTimedOut`.
@@ -336,6 +337,8 @@ Details:
   (`Custom Metadata: no`, `Metadata Stream: no`).
 - **PDF from the device = one file per page (Platen).** A multi-page
   PDF from the ADF is **not verified** — there is no paper in the feeder.
+  *(M2.5, §11: verified — the ADF returns the whole stack as ONE multi-page
+  PDF; JPEG is per-page.)*
 
 ## 7. Errors: exact responses
 
@@ -437,6 +440,133 @@ become free; the document is fetched exclusively via `NextDocument`.
 - Status polling is not mandatory in M1: the phases can be tracked on the client
   (`created → scanning → done`). If polling is needed — 500 ms–1 s, only
   for indication, with a wait timeout for `Canceled` of ~2 s (ring buffer of 16 entries).
+
+## 11. M2.5 ADF spike (27.10.2026): the delivery model is split by format
+
+Live tests with A4 sheets in the ADF (Feeder, 300 dpi, Grayscale8, region
+`2550×4200`, single-line `ScanSettings`). Three sessions: rounds 1–2 ended with
+the feeder reading empty (sensor + `500`, see the spike report); round 3 ran
+after the user re-seated the sheets. `scan:AdfState = ScannerAdfLoaded` was
+observed for the first time in round 3 — both sensor states are now verified:
+`ScannerAdfLoaded` ⇔ Feeder `POST` accepted (`201`), `ScannerAdfEmpty` ⇔ `500`
+(the M0 §7 correlation now confirmed in both directions).
+
+### 11.1 The A/B verdict: PDF = one multi-page document, JPEG = per page
+
+| Format | Delivery | Evidence |
+|---|---|---|
+| `application/pdf` | **B: the whole stack in ONE `NextDocument`** | 2 sheets → one `200` (326 305 B, `Content-Location: …/doc-43`), `pdfinfo` → `Pages: 2`; the next `NextDocument` → `404` (278 ms). Web counter +2. |
+| `image/jpeg` | **A: one document per page** | 3 sheets → three `200` responses (`doc-44`, `doc-45`, `doc-46`, ~107 kB each, one JPEG per request); then `404` (199 ms). Web counter +3. |
+
+The sane-airscan per-page model matches only the JPEG path. The PDF path
+assembles the stack server-side — the client receives a finished multi-page
+PDF in a single response. Consequence: no client-side merge is needed for PDF
+(the M2.5 lopdf plan branch for PDF is void); the JPEG path is the per-page
+fetch loop.
+
+### 11.2 Pause rule: not required
+
+The JPEG pages above were fetched strictly back-to-back: measured gap between
+responses and the next request **1 ms** (no sleep, no status poll between
+fetches). Both sheet transitions and the terminal request succeeded — no
+spurious `404`, no `ScannerAdfEmpty` mid-stack. The sane-airscan
+`ESCL_NEXT_LOAD_DELAY` quirk (for `Brother *`, 1000 ms) does not manifest on
+this unit (firmware `ZJ`). The fetch loop needs no delay.
+
+### 11.3 Timings (300 dpi, Grayscale8, A4 sheets)
+
+| Event | Time |
+|---|---|
+| `POST ScanJobs` (Feeder, accepted) | 176–846 ms |
+| JPEG page 1 (feed + scan + encode, blocks) | 8.0 s |
+| JPEG pages 2…n (pipeline overlaps with transfer) | 3.1–3.6 s each |
+| JPEG `POST` → terminal `404`, 3 sheets | 16.3 s |
+| PDF whole-stack fetch, 2 sheets (ONE blocking response) | 15.6 s |
+| PDF `POST` → terminal `404`, 2 sheets | 19.9 s |
+| Terminal `404` response time | 199–278 ms |
+| Platen reference, same settings (M0 §9 / this spike) | 8.6 s / 12.6 s first-after-idle |
+
+The PDF response blocks for the whole stack: a 2-sheet PDF is ready no earlier
+than ~15 s after the `NextDocument`, while the JPEG path serves the first page
+at ~8 s and each next one every ~3.5 s.
+
+### 11.4 Page geometry: region `4200` on A4 paper behaves differently per format
+
+Requested region `2550×4200` (the ADF maximum, Legal length) on A4 sheets:
+
+- **PDF:** non-final pages are scanned to the full requested strip — page 1:
+  602.64 × 1002.24 pt, image 2512 × 4177 px (≈ 6 cm of blank past the sheet's
+  trailing edge). The final page is truncated at the sheet end: 602.64 × 835.92 pt,
+  2512 × 3485 px.
+- **JPEG:** every page is truncated at its own sheet end: 2512 × 3485 / 3485 / 3481 px.
+
+For A4-only scanning request `Height 3507`, otherwise PDF stacks carry a
+blank tail on all pages except the last.
+
+### 11.5 Encoding: Grayscale8 + PDF carries RGB streams, JPEG is true grayscale
+
+A `Grayscale8` request delivers **3-component (rgb) JPEG streams inside the PDF**
+(`pdfimages`: `rgb 3 8 jpeg`, DCTDecode) — the platen PDF behaves the same
+(round-2 sanity scan), so this is the firmware's PDF encoder, not an ADF
+effect. The JPEG format delivers real 1-component grayscale (M0 §6 confirmed
+on the ADF path too). Sizes: 2-page PDF 326 kB, per-page JPEG ≈ 107 kB.
+
+### 11.6 Job state machine on the ADF path
+
+- During the stack: `JobState=Processing` / `JobScanning`; `ImagesCompleted`
+  counts transferred documents (1 after the single whole-stack PDF, 3 after
+  three JPEGs). `ImagesToTransfer` reads `0` on feeder jobs (on platen jobs M0
+  saw `1`) — the field is not a reliable "pages remaining" signal.
+- **The terminal `404` finalises the job:** after the last document the job
+  stays `Processing` (verified on the PDF stack job immediately after its only
+  document) and flips to `Completed` / `JobCompletedSuccessfully` only after
+  the `NextDocument` → `404`. A single-sheet job is structurally identical
+  (one `200`, then the required `404`); the literal 1-sheet-at-`POST` case was
+  not observed (every reload was consumed by the larger scenarios).
+- `DELETE` after the terminal `404` → `404` (resource already removed) — same
+  as the platen (§5.4).
+- `scan:AdfState` flips to `ScannerAdfEmpty` when the last sheet is fed
+  (observed right after the whole-stack PDF response; it was `ScannerAdfLoaded`
+  at `POST` time).
+- The 61 s idle timeout was re-verified on a feeder job created but never
+  fetched (an aborted probe): `Pending`/`JobScanning` → `Canceled` /
+  `JobTimedOut` at ~61 s, **no sheet fed** (web counter unchanged).
+- The web counter "Total Pages Scanned ADF" counts fed sheets exactly (+2 and
+  +3 in the two runs) — usable as a consumption cross-check.
+
+### 11.7 Cancel mid-stack: not verified on the ADF
+
+Paper ran out after the delivery runs (the user reloaded once mid-session; a
+6-minute watch with periodic `POST` probes saw no further reload). The
+platen cancel matrix (§10.1) remains the reference: `DELETE` during a blocking
+`NextDocument` → `200`, the hanging fetch → `410`, device `Idle`,
+`Canceled`/`JobCanceledAtDevice`. Open ADF-specific questions: the fate of the
+remaining sheets, `ImagesCompleted` after a partial stack, whether a partially
+transferred JPEG page is possible, and counter accounting for an in-flight
+sheet.
+
+### 11.8 Fixtures
+
+| File | Contents |
+|---|---|
+| `fixtures/escl/adf/adf-2sheets-300-gray.pdf` | 2-sheet stack as ONE 2-page PDF (outcome B; merge-test input or single-document save path) |
+| `fixtures/escl/adf/adf-page-1.jpg` … `adf-page-3.jpg` | per-page JPEGs from a 3-sheet stack (outcome A; true grayscale, 2512×3485/3481, 300 dpi) |
+
+Hygiene: `pdfinfo`/`strings` show no device identifiers and no metadata in any
+body; raw logs and status XML stay in `/tmp/opencode/` (uncommitted).
+
+### 11.9 What this changes in M2.5
+
+- PDF ADF scan = one blocking fetch, one file, no merge (Task 5's per-page
+  branch applies to JPEG only; the lopdf module already landed in Task 6a is
+  not needed for the PDF path — controller's call whether to keep it for
+  JPEG-side merging or drop it).
+- JPEG ADF scan = per-page loop, no pause between requests, terminate on `404`.
+- `AdfState` precheck is meaningful: `ScannerAdfLoaded` before `POST`,
+  `ScannerAdfEmpty` explains a `500`.
+- The fetch timeout must scale with the stack: the whole-stack PDF blocks
+  ~8 s × sheets + overhead (2 sheets ≈ 15.6 s; FeederCapacity is 20 → budget
+  ≥ 180 s for PDF, ~8 s + 3.5 s × (n−1) for JPEG).
 
 ## REPORT: what did not work and what it means for M1
 
