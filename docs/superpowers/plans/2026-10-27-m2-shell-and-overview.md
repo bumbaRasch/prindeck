@@ -38,12 +38,19 @@ Rust (`src-tauri/src/`):
 
 | File | Responsibility |
 |---|---|
-| `commands/mod.rs` | `AppState`, IPC payload types, `emit_*` helpers, module re-exports |
-| `commands/caps.rs` | `get_capabilities`, `get_startup_error`, `open_scan_folder` |
-| `commands/scan.rs` | `start_scan`, `cancel_scan`, `run_scan`, `fetch_document` |
+| `commands/mod.rs` | `AppState`, IPC payload types, `emit_*` helpers, flat re-exports, hidden `__cmd__*` re-exports for `generate_handler` |
+| `commands/caps.rs` | `get_capabilities`, `get_startup_error`, `open_scan_folder`, startup-resolution machinery |
+| `commands/scan.rs` | `start_scan`, `cancel_scan` |
+| `commands/scan_jobs.rs` | `run_scan`, `fetch_document`, `ScanOutcome`, `best_effort_cancel`, `forget_job` |
 | `commands/scan_files.rs` | part path, unique path, temp-file removal, format sniffing |
 | `commands/status.rs` | `get_status`, `refresh_status`, `open_printer_panel` |
 | `commands/tests/mod.rs` (+ siblings) | the unit tests moved out of the old single file |
+
+Command submodules stay private (`mod caps;`): the public IPC surface is the
+flat re-export in `commands::` plus the hidden `__cmd__*` re-export lines that
+`generate_handler!` resolves. `commands/status.rs` (Task 5) follows the same
+pattern. The Task 1 split landed this way because the plan's original
+`scan.rs` inventory could not stay under the 200-line cap.
 | `config/mod.rs` | `Config`, `DeviceConfig`, `SnmpConfig`, validation, load/create |
 | `config/host.rs` | host validation and `base_url` |
 | `config/tests.rs` | config unit tests |
@@ -371,7 +378,7 @@ Run: `cargo test --workspace status::` — expected: compile error.
 
 - [ ] **Step 4: Wire it**
 
-`lib.rs`: call `status::start_polling(app.handle().clone())` in `setup` and register the three commands. `commands/status.rs` holds the command bodies; `commands/mod.rs` re-exports them.
+`lib.rs`: call `status::start_polling(app.handle().clone())` in `setup` and register the three commands. `commands/status.rs` holds the command bodies; `commands/mod.rs` declares `mod status;` privately, re-exports the three command functions flat, and adds the hidden `pub use status::__cmd__get_status;`-style lines `generate_handler!` resolves — the pattern the Task 1 split established. Watch the 200-line cap in `mod.rs` (158 lines after Task 1): if the additions overflow it, the next domain module takes the overflow, as `caps.rs` took the startup machinery.
 
 - [ ] **Step 5: Run the gate**
 
