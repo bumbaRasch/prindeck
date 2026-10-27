@@ -2,11 +2,13 @@ import { PAGE_FORMS } from "./labels";
 import type {
   ColorMode,
   Connectivity,
+  CupsJob,
   DeviceStatus,
   DocFormat,
   ScanCaps,
   ScanParams,
   ScanPhase,
+  Sides,
   Source,
   Tone,
 } from "./types";
@@ -31,6 +33,15 @@ export interface AppState {
   status: DeviceStatus | null;
   esclFailed: boolean;
   refreshingStatus: boolean;
+  printFile: string | null;
+  printCopies: number;
+  printSides: Sides;
+  printSending: boolean;
+  printError: string | null;
+  queue: CupsJob[];
+  queueLoading: boolean;
+  queueLoaded: boolean;
+  cancelingJobId: string | null;
 }
 
 export function createState(): AppState {
@@ -54,6 +65,15 @@ export function createState(): AppState {
     status: null,
     esclFailed: false,
     refreshingStatus: false,
+    printFile: null,
+    printCopies: 1,
+    printSides: "one-sided",
+    printSending: false,
+    printError: null,
+    queue: [],
+    queueLoading: false,
+    queueLoaded: false,
+    cancelingJobId: null,
   };
 }
 

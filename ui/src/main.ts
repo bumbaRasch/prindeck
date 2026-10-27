@@ -14,6 +14,7 @@ import { createState } from "./state";
 import { initShell, renderShell } from "./shell";
 import type { DeviceStatus, ScanDone, ScanError, ScanProgress } from "./types";
 import { initOverviewScreen, renderOverviewScreen } from "./screens/overview";
+import { initPrintScreen, renderPrintScreen, setPrintScreenActive } from "./screens/print";
 import { initScanScreen, renderScanScreen } from "./screens/scan";
 
 const state = createState();
@@ -156,6 +157,7 @@ function render(): void {
   renderShell(state);
   renderScanScreen(state);
   renderOverviewScreen(state);
+  renderPrintScreen(state);
 }
 
 function init(): void {
@@ -167,9 +169,13 @@ function init(): void {
       void refreshStatusNow();
     },
   );
-  initRouter(render);
+  initRouter((screen) => {
+    render();
+    setPrintScreenActive(screen === "print");
+  });
   initScanScreen(() => state);
   initOverviewScreen(() => state, () => refreshStatusNow());
+  initPrintScreen(() => state);
   bindCapabilitiesRetry(() => state, render);
 
   void registerListeners();

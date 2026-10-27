@@ -1,0 +1,141 @@
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 22px 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  text-align: center;
+}
+
+.dropzone[data-dragging] {
+  border-color: var(--primary);
+  background: var(--nav-active-bg);
+}
+
+.dropzone-title {
+  font-weight: 600;
+}
+
+.dropzone-hint {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.print-file {
+  padding: 8px 10px;
+  background: var(--surface-muted);
+  border-radius: 8px;
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.stepper {
+  display: flex;
+  gap: 8px;
+}
+
+.stepper-button {
+  flex: none;
+  width: 44px;
+  min-height: 42px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.stepper-button:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.stepper-input {
+  width: 76px;
+  min-height: 42px;
+  padding: 8px 6px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+
+.stepper-input::-webkit-outer-spin-button,
+.stepper-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.stepper-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.queue-note {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.queue-scroll {
+  overflow-x: auto;
+}
+
+.queue-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.queue-table th,
+.queue-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: baseline;
+}
+
+.queue-table thead th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.queue-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.queue-cell-id {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.queue-cell-state {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@container content (max-width: 559px) {
+  .dropzone {
+    padding: 16px 12px;
+  }
+
+  .queue-table th,
+  .queue-table td {
+    padding: 6px;
+    font-size: 13px;
+  }
+}

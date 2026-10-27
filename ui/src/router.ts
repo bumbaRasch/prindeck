@@ -2,10 +2,10 @@ import { mustQuery } from "./dom";
 import { SCREEN_TITLES } from "./labels";
 import type { Screen } from "./types";
 
-const SCREENS: readonly Screen[] = ["scan", "overview"];
+const SCREENS: readonly Screen[] = ["scan", "overview", "print"];
 
 function isScreen(value: string | undefined): value is Screen {
-  return value === "scan" || value === "overview";
+  return value === "scan" || value === "overview" || value === "print";
 }
 
 let current: Screen = "scan";

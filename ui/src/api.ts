@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { TEXT } from "./labels";
 import type {
+  CupsJob,
   DeviceStatus,
   ScanCaps,
   ScanDone,
@@ -9,6 +10,7 @@ import type {
   ScanErrorKind,
   ScanParams,
   ScanProgress,
+  Sides,
 } from "./types";
 
 export type UnlistenFn = () => void;
@@ -119,6 +121,22 @@ export function refreshStatus(): Promise<DeviceStatus> {
 
 export function openPrinterPanel(): Promise<void> {
   return invoke<void>("open_printer_panel");
+}
+
+export function printFile(
+  path: string,
+  copies: number,
+  sides: Sides,
+): Promise<string> {
+  return invoke<string>("print_file", { path, copies, sides });
+}
+
+export function getQueue(): Promise<CupsJob[]> {
+  return invoke<CupsJob[]>("get_queue");
+}
+
+export function cancelPrint(jobId: string): Promise<void> {
+  return invoke<void>("cancel_print", { jobId });
 }
 
 export function onStatus(

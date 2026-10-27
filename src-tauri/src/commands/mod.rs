@@ -11,6 +11,7 @@ use crate::escl::{EsclClient, ScanCaps};
 use caps::resolve_state;
 
 mod caps;
+mod print;
 mod scan;
 mod scan_errors;
 mod scan_files;
@@ -120,6 +121,7 @@ fn emit_error(app: &AppHandle, job_id: &str, failure: ScanFailure) {
 }
 
 pub use caps::{get_capabilities, get_startup_error, open_scan_folder};
+pub use print::{cancel_print, get_queue, print_file};
 pub use scan::{cancel_scan, start_scan};
 pub use scan_errors::{ScanErrorKind, ScanFailure, user_message};
 pub use status::{get_status, open_printer_panel, refresh_status};
@@ -128,6 +130,11 @@ pub use caps::{
     __cmd__get_capabilities, __cmd__get_startup_error, __cmd__open_scan_folder,
     __tauri_command_name_get_capabilities, __tauri_command_name_get_startup_error,
     __tauri_command_name_open_scan_folder,
+};
+pub use print::{
+    __cmd__cancel_print, __cmd__get_queue, __cmd__print_file,
+    __tauri_command_name_cancel_print, __tauri_command_name_get_queue,
+    __tauri_command_name_print_file,
 };
 pub use scan::{
     __cmd__cancel_scan, __cmd__start_scan, __tauri_command_name_cancel_scan,

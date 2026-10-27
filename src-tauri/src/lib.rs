@@ -39,6 +39,7 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::initialize())
         .setup(|app| {
             #[cfg(desktop)]
@@ -79,6 +80,9 @@ pub fn run() {
             commands::get_status,
             commands::refresh_status,
             commands::open_printer_panel,
+            commands::print_file,
+            commands::get_queue,
+            commands::cancel_print,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,9 +1,30 @@
-import type { ColorMode, Connectivity, DocFormat, Screen, Source } from "./types";
+import type {
+  ColorMode,
+  Connectivity,
+  DocFormat,
+  Screen,
+  Sides,
+  Source,
+} from "./types";
 
 export const SCREEN_TITLES: Record<Screen, string> = {
   scan: "Скан",
   overview: "Обзор",
+  print: "Печать",
 };
+
+export const SIDES_LABELS: Record<Sides, string> = {
+  "one-sided": "односторонняя",
+  "two-sided-long-edge": "по длинному краю",
+  "two-sided-short-edge": "по короткому краю",
+};
+
+export function formatSizeKb(sizeKb: number): string {
+  if (sizeKb < 1024) {
+    return `${sizeKb} КБ`;
+  }
+  return `${(sizeKb / 1024).toFixed(1)} МБ`;
+}
 
 export const CHIP_LABELS: Record<Connectivity, string> = {
   checking: "Проверяем…",
@@ -66,4 +87,25 @@ export const TEXT = {
   drumLeftLabel: "Ресурс барабана",
   scanAction: "Скан",
   webPanelAction: "Веб-панель",
+  chooseFile: "Выбрать файл…",
+  dropzoneTitle: "Перетащите файл для печати",
+  dropzoneHint: "PDF, изображение или другой документ",
+  copiesLabel: "Копии",
+  sidesLabel: "Стороны",
+  printAction: "Печать",
+  printSending: "Печать…",
+  printReady: "готов к печати",
+  printPickFile: "выберите файл для печати",
+  sendingPrint: "отправляем на печать…",
+  cancelingPrint: "отменяем задание…",
+  queueTitle: "Очередь печати",
+  queueEmpty: "Очередь пуста",
+  queueLoading: "Обновляем…",
+  queueJobLabel: "Задание",
+  queueOwnerLabel: "Владелец",
+  queueSizeLabel: "Размер",
+  queueStateLabel: "Состояние",
+  jobPendingLabel: "в ожидании",
+  cancelJob: "Отменить",
+  cancelingJob: "Отменяем…",
 };

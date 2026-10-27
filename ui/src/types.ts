@@ -5,7 +5,15 @@ export type ColorMode = "BlackAndWhite1" | "Grayscale8" | "RGB24";
 
 export type DocFormat = "application/pdf" | "image/jpeg";
 
-export type Screen = "scan" | "overview";
+export type Screen = "scan" | "overview" | "print";
+
+export type Sides = "one-sided" | "two-sided-long-edge" | "two-sided-short-edge";
+
+export interface CupsJob {
+  id: string;
+  owner: string;
+  sizeKb: number;
+}
 
 export type Connectivity = "checking" | "online" | "offline" | "scanning";
 

@@ -1,5 +1,6 @@
 import { mustQuery } from "./dom";
 import { TEXT } from "./labels";
+import { currentScreen } from "./router";
 import {
   CONNECTIVITY_TONES,
   connectivity,
@@ -25,6 +26,9 @@ const els = {
 let connBannerShown: boolean | null = null;
 
 function statusView(state: AppState): { text: string; tone: Tone } {
+  if (currentScreen() === "print") {
+    return printStatusView(state);
+  }
   if (state.capsError !== null) {
     return { text: TEXT.deviceUnavailable, tone: "error" };
   }
@@ -58,6 +62,22 @@ function statusView(state: AppState): { text: string; tone: Tone } {
         ? { text: "", tone: "idle" }
         : { text: TEXT.ready, tone: "idle" };
   }
+}
+
+function printStatusView(state: AppState): { text: string; tone: Tone } {
+  if (state.printError !== null) {
+    return { text: state.printError, tone: "error" };
+  }
+  if (state.printSending) {
+    return { text: TEXT.sendingPrint, tone: "busy" };
+  }
+  if (state.cancelingJobId !== null) {
+    return { text: TEXT.cancelingPrint, tone: "busy" };
+  }
+  return {
+    text: state.printFile === null ? TEXT.printPickFile : TEXT.printReady,
+    tone: "idle",
+  };
 }
 
 function renderConnBanner(state: AppState): void {
