@@ -131,13 +131,13 @@ gated by a live check of the EWS paths on our device (§13.10).
 
 | # | Feature | Home | Notes / milestone |
 |---|---|---|---|
-| R1 | Deep links into the device web panel: the verified public pages (status, maintenance info, sleep, auto power-off, replace toner, reports) + gated pages (date/time, firmware) behind the login-return mechanism | «Обзор»/«Настройки» | M3, with the settings screen; public links verified live 27.10.2026 (`docs/ews-l2710dw.md`), gated ones confirmed after a manual login |
+| R1 | Deep links into the device web panel: public pages (status, maintenance info, sleep, auto power-off, replace toner) + authenticated pages (date/time, SNTP, firmware update, network status, wired/wireless TCP-IP details) | «Обзор»/«Настройки» | M3, with the settings screen; every link verified live 27.10.2026 (`docs/ews-l2710dw.md`); authenticated links open the panel's login form first |
 | R2 | Scan result preview with page operations before saving: rotate, delete/insert a page, reorder, crop | «Скан» | M3, after the ADF merge; fully client-side |
 | R3 | Continuous ADF: after a pass ask "add pages?" and append to the same PDF | «Скан» | M3; on eSCL — a new ScanJobs POST + merge, the device is free between passes |
 | R4 | Blank-page skip with a sensitivity setting (share of near-white pixels) | «Скан» | M3; applies to ADF passes |
 | R5 | Human-readable state from the already parsed blobs: jams → "check the paper path", drum pages vs 12 000 → "drum end soon" | «Обзор» | M4, with notifications; message wording referenced from the vendor status dictionary (docs/ref) |
 | R6 | Toner remaining-pages estimate next to the %: cartridge ISO yield minus the page counter | «Обзор» | M4, needs history (SQLite); the installed cartridge model/yield must be verified against the web panel first — do not hardcode |
-| R7 | Firmware: a menu item/notification opening the device firmware page — no flashing from prindeck | «Обзор»/tray | M4; the path is auth-gated and its existence unknown (`docs/ews-l2710dw.md`) — confirm during the manual login check, otherwise the link goes to the panel root |
+| R7 | Firmware: a menu item/notification opening the device firmware page — no flashing from prindeck | «Обзор»/tray | M4; `/admin/firmwareupdate.html` verified live behind the login (`docs/ews-l2710dw.md`); "outdated" detection only if a trustworthy version source appears |
 | R9 | PC Copy: scan → print N copies via CUPS | «Скан» | deferred — both halves exist after M3; revisit at v2 planning |
 
 ## 5. Non-functional requirements
@@ -455,24 +455,24 @@ the press by polling eSCL `ScannerStatus` — spike first (§13.11).
    `brInfoCounter #00` (correct 4 bytes).
 9. The semantics of `#63`/`#31`/`#6f` of the maintenance blob is **unknown** (`#6f` = 34 % ≠
    40 %) — do not interpret, skip with a log.
-10. ~~**EWS deep-link paths**~~ — **checked live 27.10.2026** (GET-only, no login
-    POSTs; `docs/ews-l2710dw.md`): the panel root redirects to
-    `/general/status.html`; everything outside `/general/` sits behind a login
-    gate that fires **before** the existence check, so the reference paths
-    (`/admin/date.html`, `/admin/firmwareupdate.html`, `/net/...`,
-    `/scan/scandestination.html`, `/scan/scantopc.html`) stay **unknown**
-    without credentials. Verified public-zone links: status, maintenance info,
-    sleep, auto power-off, mode timer, volume, panel, replace-toner, reports.
-    Deep links to gated pages still work behind the login form (`loginurl`
-    return) — R1 ships verified public links; gated links wait for a manual
-    logged-in confirmation.
-11. **Scan-to-PC mechanism** (v2 gate, §12): whether the EWS scan-destination
-    page accepts a network target (URL), and what the device does when the
-    button is pressed — does a job appear in eSCL `ScannerStatus`/`ScanJobs`?
-    Spike on the live device before planning v2. Observed 27.10.2026:
-    `ScannerCapabilities` declares the `xmlns:dest` namespace with no `dest:`
-    elements (no destinations registered) — registration may be supported;
-    also check the gated `/scan/` panel subtree after a manual login.
+10. ~~**EWS deep-link paths**~~ — **resolved 27.10.2026** (live check; GET-only
+    plus one user-authorized login; `docs/ews-l2710dw.md`): public zone verified
+    (status, maintenance info, sleep, auto power-off, replace toner…); behind
+    the login the reference admin/network paths exist (`/admin/date.html`,
+    `/admin/firmwareupdate.html`, `/net/wired|wireless/link_tcpip_detail.html`,
+    `/net/net/sntp.html`), the scan paths do not (`/scan/scandestination.html`,
+    `/scan/scantopc.html` → 404 — the real page is `/scan/scanfrompc.html`,
+    only a Pull Scan toggle). R1 ships the full verified set; credentials stay
+    out of the repo.
+11. **Scan-to-PC mechanism** (v2 gate, §12): the panel path is **dead** —
+    verified 27.10.2026 that the EWS offers no destination registration
+    (`/scan/scanfrompc.html` is only a Pull Scan Enabled/Disabled toggle; the
+    iPrint&Scan destination pages are 404; `ScannerCapabilities` declares
+    `xmlns:dest` with no elements). Remaining question for the spike: what the
+    device does when the hardware scan button is pressed — does anything
+    appear in eSCL `ScannerStatus`/`ScanJobs`, or is the button software-bound
+    (Windows-only) on this model? If the latter, §12 «Scan to PC» is dropped
+    or re-scoped.
 
 ## 14. Acceptance
 

@@ -44,28 +44,48 @@ POST — not done in this check).
 (Entries marked "in index nav" are **observed** as links on the live index;
 only the first three were additionally fetched and content-checked.)
 
-## Auth-gated candidates (existence unknown)
+## Login (observed, 27.10.2026, user-authorized)
 
-From the iPrint&Scan resources — all land on the login gate, existence
-unproven: `/admin/date.html`, `/admin/firmwareupdate.html`,
-`/net/wired/link_tcpip_detail.html`, `/net/wireless/link_tcpip_detail.html`,
-`/scan/scandestination.html`, `/scan/scantopc.html`. A dedicated gated
-`/scan/` subtree exists in both styles (`/scan/…`, `/EWS/scan/…`) —
-**inferred**: an authenticated Scan section exists, page names unknown.
+The login form POSTs to `/general/status.html` with a password field and the
+hidden `loginurl` return path; a successful login sets an `AuthCookie`
+session cookie. Credentials are **not recorded in any repository file**.
 
-The `loginurl` return mechanism means a deep link into a gated area still
-lands the user on the target page after they log in by hand — usable UX for
-prindeck, provided the path actually exists (**inferred**, not verified).
+## Verified authenticated pages (200 with session)
+
+| URL | Page | Notes |
+|---|---|---|
+| `/admin/date.html` | Date&Time | the reference path exists |
+| `/admin/firmwareupdate.html` | Firmware Update | the reference path exists (F5/R7) |
+| `/admin/password.html` | password change | in nav |
+| `/admin/securitysettings.html` | Security Settings | in nav |
+| `/admin/settinglock.html` | Setting Lock | in nav |
+| `/admin/default.html` | factory defaults | in nav |
+| `/net/net/net.html` | Network Status | in nav |
+| `/net/net/sntp.html?pageid=347` | SNTP (NTP time sync) | relevant to date/time |
+| `/net/wired/link_tcpip_detail.html` | wired TCP/IP details | the reference path exists |
+| `/net/wireless/link_tcpip_detail.html` | wireless TCP/IP details | the reference path exists |
+| `/scan/scanfrompc.html` | **Scan from PC** | only a **Pull Scan Enabled/Disabled** toggle — no destination management |
+| `/address/onetouchdial.html` | One Touch Dial | fax address book |
+| `/copy/copy.html`, `/fax/fax/fax.html`, `/print/print.html` | section roots | Copy/Fax/Print |
+
+**404 (do not exist on this firmware):** `/scan/scandestination.html`,
+`/scan/scantopc.html` — the iPrint&Scan resource paths are stale for this
+model. The EWS does **not** offer scan-destination/network-target
+registration; the only scan-related page is the Pull Scan toggle (currently
+Enabled — consistent with eSCL scanning working). Relevant to PRD §13.11:
+Scan-to-PC target registration happens in software (Windows driver/iPrint&Scan),
+not in the panel.
+
+## Not done here
+
+No settings were changed: the only POST was the login itself; every page visit
+was a GET. No forms submitted, no `/eSCL/` write endpoints touched.
 
 ## eSCL interplay (observed 27.10.2026)
 
 `GET /eSCL/ScannerCapabilities` → 200 while the panel was being mapped; the
 XML declares `xmlns:dest` but contains **no `dest:` elements** — no eSCL scan
-destinations are currently registered on the device. Relevant to PRD §13.11
-(Scan-to-PC): the namespace exists, so destination registration may be
-supported; unverified.
-
-## Not done here
-
-Login POST (needs explicit user confirmation), any form submission, any
-`/eSCL/` write endpoint.
+destinations are currently registered on the device. Combined with the panel
+finding (the EWS exposes only the Pull Scan toggle, no destination
+management), the Linux-facing picture: pull scanning needs no registration —
+eSCL just works while Pull Scan stays Enabled (PRD §13.11).
