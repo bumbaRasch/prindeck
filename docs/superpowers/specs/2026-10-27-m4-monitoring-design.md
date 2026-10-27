@@ -92,9 +92,11 @@ PRD already promises (§8). The reference findings R5–R7 land here by design.
 - Files < 200 lines, domain-named modules (`notify/`, not `utils`);
   Rust 2024, no code comments; TS strict; Russian UI strings in
   `labels.ts`/`*_LABEL` only; responsive 640×480, both themes (AGENTS.md).
-- Config evolution follows the established serde-default pattern
-  (`cups_queue` from M2.5): new keys have defaults, old configs load clean;
-  validation errors surface through the existing `ConfigError` path.
+- Config schema is current-only (user decision 27.10.2026, supersedes the
+  serde-default pattern used for `cups_queue` in M2.5): new keys are
+  required fields with validation bounds; an outdated config fails startup
+  validation loudly through the existing `ConfigError` path (PRD §5.5),
+  and the error names the offending key. Clean schema over migration shims.
 - Notifications must fire with the window closed (backend-side, in the
   status poller), never UI-side.
 
