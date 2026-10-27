@@ -61,7 +61,15 @@ Fixtures/docs: `fixtures/print/lpstat-not-completed.txt` (Task 2), `fixtures/esc
 
 ## Parallelism
 
-Tasks 1, 2 and 4 touch disjoint files (`status/`+`history.rs` vs `print/` vs device/docs) but share `lib.rs`/`commands/mod.rs` wiring queues lightly: run them sequentially (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8); Task 4 needs the user present, Tasks 5–7 need Task 4's fixtures.
+Wave model (updated 27.10.2026 for speed, at the user's request): parallel tasks run in **separate git worktrees**, each on its own branch off `m2-5-phase`; the controller merges them back sequentially and re-runs the full gate after each merge.
+
+| Wave | Tasks | Worktree | Why safe to parallelize |
+|---|---|---|---|
+| 1 | 4 (spike, user-gated) ∥ 5 (fetch loop + IPC) ∥ 6a (pure `pdf_merge` module) | device / `m2-5-t5` / `m2-5-t6a` | Disjoint files: T5 touches `commands/` + UI mirror, T6a touches only new files + `Cargo.toml`/`lib.rs` mod line, T4 touches no product code |
+| 2 | 6b (wire merge into the pipeline, tiny) ∥ 7 (scan UI) | `m2-5-phase` after merges | 6b consumes `PagesOutcome` (T5) and `merge_pdfs` (T6a); T7 consumes T5's payloads |
+| 3 | 8 (docs + live acceptance, user-gated live parts) | `m2-5-phase` | needs everything landed |
+
+Task 5 does NOT block on Task 4's pause-rule verdict: implement the pause per the design (`next_delay` = min(1 s, prev/2), the sane-airscan Brother rule) behind that single function — if §11 later proves the pause unnecessary on this unit, removing it is a one-function change, not a redesign. Task 6a does NOT block on Task 4's fixtures: tests run on the device-produced platen PDF from M1 (`fixtures/escl/platen-300-gray.pdf`, copied from `~/Documents/scans/scan-20261027-095553.pdf`); real ADF per-page fixtures from Task 4 upgrade those tests in Task 6b.
 
 ---
 
@@ -278,7 +286,7 @@ Terminal-event table (complete, both outcomes — `pages` is received PDF/JPEG p
 
 `scan-progress` gains `pages: u32`, emitted on every received page. The loop is outcome-agnostic: under outcome B the second `NextDocument` → `404` ends it with one page.
 
-- Consumes: `EsclClient::next_document` (200/404/410 semantics, M1), `next_delay` verdict from Task 4 (drop the pause only if §11 says it is unnecessary on this unit).
+- Consumes: `EsclClient::next_document` (200/404/410 semantics, M1). The pause rule is NOT gated on Task 4: implement `next_delay` per the design (min(1 s, prev/2), the sane-airscan Brother quirk) — if the spike's §11 later proves the pause unnecessary on this unit, removing it is a one-function change.
 
 - [ ] **Step 1: Failing tests** — `next_delay_clamps` (8 s prev → 1 s; 1.2 s prev → 600 ms); `terminal_event_failed_with_pages_is_done_partial`; `terminal_event_failed_empty_is_error`; `terminal_event_canceled_with_pages_is_done_partial`; `terminal_event_canceled_empty_is_progress_canceled_only`; `canceled_keeps_pages`; naming tests: JPEG stack → `-p1..-pN`, canceled PDF → `-partial.pdf`, collision suffix `-2`.
 
@@ -297,16 +305,21 @@ git commit -m "M2.5: per-page ADF fetch loop with partial-keep terminals"
 
 ### Task 6: `pdf_merge` module (outcome A)
 
-**Files:**
-- Create: `src-tauri/src/pdf_merge.rs` + tests; Modify: `src-tauri/Cargo.toml`, `src-tauri/src/lib.rs`, `src-tauri/src/commands/scan_jobs.rs` (call site)
+Split for parallelism: **6a** (pure module + tests, runs in wave 1 in its own worktree, does not touch the scan pipeline) and **6b** (wiring, wave 2, after Task 5 merges).
+
+**Files (6a):**
+- Create: `src-tauri/src/pdf_merge.rs` + tests; Modify: `src-tauri/Cargo.toml`, `src-tauri/src/lib.rs` (`pub mod pdf_merge;`)
+
+**Files (6b):**
+- Modify: `src-tauri/src/commands/scan_jobs.rs` (call site), `fixtures/escl/adf/` real fixtures from Task 4 upgrading the 6a tests
 
 **Interfaces:**
 - Produces: `pub fn merge_pdfs(pages: &[Vec<u8>]) -> Result<Vec<u8>, MergeError>`
-- Consumes: `PagesOutcome::Complete/Canceled{pages}` with >1 PDF page (invoke only then; a single page saves as-is — outcome B needs no merge).
+- Consumes (6b): `PagesOutcome::Complete/Canceled{pages}` with >1 PDF page (invoke only then; a single page saves as-is — outcome B needs no merge).
 
-- [ ] **Step 0: Branch on the spike verdict** — §11 says B and `fixtures/escl/adf` holds a single multi-page PDF? Then this task reduces to: do not add `lopdf`, wire the single-document save path, and record the decision in the commit message. Otherwise continue.
+- [ ] **Step 0 (6b): Branch on the spike verdict** — §11 says B and `fixtures/escl/adf` holds a single multi-page PDF? Then do not wire the merge at all, record the decision, and 6a's module stays dormant behind its tests. Otherwise wire it.
 
-- [ ] **Step 1: Failing tests on the spike fixtures** — `merge_pdfs(&[page1, page2, page3])` → `pdfinfo`-equivalent assertions through lopdf (`get_pages().len() == 3`, version present); `merge_single_page_passthrough_or_merge` (either is acceptable — assert pages == 1); `merge_rejects_garbage` → `Err(MergeError::Parse(_))`; merged bytes start with `%PDF-`.
+- [ ] **Step 1: Failing tests (6a) on the device PDF** — copy `~/Documents/scans/scan-20261027-095553.pdf` to `fixtures/escl/platen-300-gray.pdf` (a real firmware-produced single-page PDF); `merge_pdfs(&[page, page, page])` → lopdf `get_pages().len() == 3`; `merge_single_page` → pages == 1; `merge_rejects_garbage` → `Err(MergeError::Parse(_))`; merged bytes start with `%PDF-`. 6b upgrades these to the real ADF per-page fixtures.
 
 - [ ] **Step 2: Run to fail** — compile error.
 
