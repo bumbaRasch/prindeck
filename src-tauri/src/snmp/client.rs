@@ -9,6 +9,7 @@ use super::{SnmpCounters, counters_from};
 const MAINTENANCE_OID: [u64; 17] = [1, 3, 6, 1, 4, 1, 2435, 2, 3, 9, 4, 2, 1, 5, 5, 8, 0];
 const COUNTER_OID: [u64; 17] = [1, 3, 6, 1, 4, 1, 2435, 2, 3, 9, 4, 2, 1, 5, 5, 10, 0];
 const NEXT_CARE_OID: [u64; 17] = [1, 3, 6, 1, 4, 1, 2435, 2, 3, 9, 4, 2, 1, 5, 5, 11, 0];
+const JAM_COUNT_OID: [u64; 17] = [1, 3, 6, 1, 4, 1, 2435, 2, 3, 9, 4, 2, 1, 5, 5, 21, 0];
 const SNMP_PORT: u16 = 161;
 const TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -56,14 +57,21 @@ impl SnmpClient {
         let maintenance_oid = oid(&MAINTENANCE_OID)?;
         let counter_oid = oid(&COUNTER_OID)?;
         let next_care_oid = oid(&NEXT_CARE_OID)?;
+        let jam_count_oid = oid(&JAM_COUNT_OID)?;
         let response = session
-            .get_many(&[&maintenance_oid, &counter_oid, &next_care_oid])
+            .get_many(&[
+                &maintenance_oid,
+                &counter_oid,
+                &next_care_oid,
+                &jam_count_oid,
+            ])
             .map_err(|error| SnmpError::Transport(error.to_string()))?;
         let varbinds: Vec<_> = response.varbinds.collect();
         let maintenance = octet_string(&varbinds, 0)?;
         let counter = octet_string(&varbinds, 1)?;
         let next_care = octet_string(&varbinds, 2)?;
-        Ok(counters_from(maintenance, counter, next_care))
+        let jam_count = optional_octet_string(&varbinds, 3);
+        Ok(counters_from(maintenance, counter, next_care, jam_count))
     }
 }
 
@@ -95,5 +103,15 @@ fn octet_string<'a, 'b>(
         _ => Err(SnmpError::Protocol(format!(
             "the snmp response varbind {index} is not an octet string"
         ))),
+    }
+}
+
+pub(super) fn optional_octet_string<'a, 'b>(
+    varbinds: &'a [(Oid<'b>, Value<'b>)],
+    index: usize,
+) -> Option<&'a [u8]> {
+    match varbinds.get(index) {
+        Some((_, Value::OctetString(blob))) => Some(blob),
+        _ => None,
     }
 }

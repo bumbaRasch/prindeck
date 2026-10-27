@@ -17,6 +17,7 @@ fn counters() -> SnmpCounters {
         pages_total: Some(7753),
         duplex_pages: Some(3967),
         drum_pages_left: Some(4247),
+        jam_count: Some(8),
     }
 }
 
@@ -40,6 +41,7 @@ fn failed_poll_keeps_the_last_good_values() {
     assert_eq!(failed.pages_total, good.pages_total);
     assert_eq!(failed.duplex_pages, good.duplex_pages);
     assert_eq!(failed.drum_pages_left, good.drum_pages_left);
+    assert_eq!(failed.jam_count, good.jam_count);
 }
 
 #[test]
@@ -56,6 +58,7 @@ fn first_snapshot_is_empty_and_not_ok() {
     assert_eq!(snapshot.pages_total, None);
     assert_eq!(snapshot.duplex_pages, None);
     assert_eq!(snapshot.drum_pages_left, None);
+    assert_eq!(snapshot.jam_count, None);
 }
 
 #[test]

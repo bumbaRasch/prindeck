@@ -23,6 +23,7 @@ pub struct DeviceStatus {
     pub pages_total: Option<u32>,
     pub duplex_pages: Option<u32>,
     pub drum_pages_left: Option<u32>,
+    pub jam_count: Option<u32>,
     pub polled_at: Option<String>,
     pub error: Option<String>,
 }
@@ -37,6 +38,7 @@ impl DeviceStatus {
             pages_total: None,
             duplex_pages: None,
             drum_pages_left: None,
+            jam_count: None,
             polled_at: None,
             error: None,
         }
@@ -67,6 +69,7 @@ impl StatusCache {
         status.pages_total = counters.pages_total;
         status.duplex_pages = counters.duplex_pages;
         status.drum_pages_left = counters.drum_pages_left;
+        status.jam_count = counters.jam_count;
         status.polled_at = Some(now_rfc3339());
         status.error = None;
     }
