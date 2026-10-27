@@ -48,3 +48,27 @@ fn jpeg_page(marker: u8) -> Vec<u8> {
 fn pdf_page(marker: u8) -> Vec<u8> {
     format!("%PDF-1.4 page {marker}").into_bytes()
 }
+
+fn adf_jpeg_pages() -> Vec<Vec<u8>> {
+    vec![
+        include_bytes!("../../../../fixtures/escl/adf/adf-page-1.jpg").to_vec(),
+        include_bytes!("../../../../fixtures/escl/adf/adf-page-2.jpg").to_vec(),
+        include_bytes!("../../../../fixtures/escl/adf/adf-page-3.jpg").to_vec(),
+    ]
+}
+
+fn adf_pdf_stack() -> Vec<u8> {
+    include_bytes!("../../../../fixtures/escl/adf/adf-2sheets-300-gray.pdf").to_vec()
+}
+
+fn saved_file_names(files: &[std::path::PathBuf]) -> Vec<String> {
+    files
+        .iter()
+        .map(|file| {
+            file.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default()
+                .to_string()
+        })
+        .collect()
+}

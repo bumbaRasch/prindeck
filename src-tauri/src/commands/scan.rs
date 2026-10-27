@@ -1,8 +1,9 @@
 use tauri::{AppHandle, State};
 
+use super::caps::load_caps;
 use super::scan_jobs::{best_effort_cancel, run_scan};
 use super::{AppState, ScanErrorKind, ScanFailure, ScanPhase, emit_progress, lock, user_message};
-use crate::escl::{CancelOutcome, ScanParams, ScannerState};
+use crate::escl::{CancelOutcome, ScanParams, ScannerState, fetch_timeout};
 
 pub const JOB_PATH_PREFIX: &str = "/eSCL/ScanJobs/";
 
@@ -47,6 +48,14 @@ pub async fn start_scan(
     state: State<'_, AppState>,
     params: ScanParams,
 ) -> Result<String, ScanFailure> {
+    let caps = load_caps(&state.client, &state.caps)
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "capabilities request failed");
+            ScanFailure::from_escl(&error)
+        })?;
+    let document_timeout = fetch_timeout(params.source, &caps);
+
     let status = state.client.status().await.map_err(|error| {
         tracing::warn!(%error, "scanner status request failed");
         ScanFailure::from_escl(&error)
@@ -93,7 +102,15 @@ pub async fn start_scan(
     let format = params.format;
     let task_job_id = job_id.clone();
 
-    tauri::async_runtime::spawn(run_scan(app, client, scan_dir, task_job_id, job, format));
+    tauri::async_runtime::spawn(run_scan(
+        app,
+        client,
+        scan_dir,
+        task_job_id,
+        job,
+        format,
+        document_timeout,
+    ));
 
     Ok(job_id)
 }

@@ -1,32 +1,45 @@
+use std::sync::{Mutex, MutexGuard};
+
 use reqwest::Url;
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
-use super::{AppState, FALLBACK_BASE_URL, lock, user_message};
+use super::{AppState, FALLBACK_BASE_URL, user_message};
 use crate::config::Config;
-use crate::escl::{EsclClient, ScanCaps};
+use crate::escl::{EsclClient, EsclError, ScanCaps};
 
-#[tauri::command]
-pub async fn get_capabilities(state: State<'_, AppState>) -> Result<ScanCaps, String> {
+pub(super) async fn load_caps(
+    client: &EsclClient,
+    cache: &Mutex<Option<ScanCaps>>,
+) -> Result<ScanCaps, EsclError> {
     {
-        let cached = lock(&state.caps)?;
+        let cached = caps_guard(cache);
         if let Some(caps) = cached.as_ref() {
             return Ok(caps.clone());
         }
     }
 
-    let caps = state
-        .client
-        .capabilities()
-        .await
-        .map_err(|error| user_message(&error))?;
+    let caps = client.capabilities().await?;
 
     {
-        let mut cached = lock(&state.caps)?;
+        let mut cached = caps_guard(cache);
         *cached = Some(caps.clone());
     }
 
     Ok(caps)
+}
+
+fn caps_guard(cache: &Mutex<Option<ScanCaps>>) -> MutexGuard<'_, Option<ScanCaps>> {
+    cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[tauri::command]
+pub async fn get_capabilities(state: State<'_, AppState>) -> Result<ScanCaps, String> {
+    load_caps(&state.client, &state.caps)
+        .await
+        .map_err(|error| user_message(&error))
 }
 
 #[tauri::command]

@@ -50,13 +50,13 @@ pub(super) fn page_file_names(
     page_count: usize,
     partial: bool,
 ) -> Vec<String> {
-    if format == DocFormat::Pdf && page_count == 1 {
+    if format == DocFormat::Pdf {
         let base = if partial {
             partial_file_name(timestamp, format)
         } else {
             scan_file_name(timestamp, format)
         };
-        return vec![base];
+        return vec![base; page_count];
     }
 
     (1..=page_count)

@@ -1,11 +1,9 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use reqwest::Url;
 
 use super::scan_files::format_matches;
 use crate::escl::{DocFormat, EsclClient, EsclError, NextDoc};
-
-const MAX_PAUSE: Duration = Duration::from_secs(1);
 
 #[derive(Debug)]
 pub enum PagesOutcome {
@@ -21,24 +19,17 @@ pub enum PagesOutcome {
     },
 }
 
-pub fn next_delay(prev_request: Duration) -> Duration {
-    (prev_request / 2).min(MAX_PAUSE)
-}
-
 pub(super) async fn fetch_pages(
     client: &EsclClient,
     job: &Url,
     format: DocFormat,
+    document_timeout: Duration,
     mut on_page: impl FnMut(u32),
 ) -> PagesOutcome {
     let mut pages: Vec<Vec<u8>> = Vec::new();
 
     loop {
-        let started = Instant::now();
-        let attempt = client.next_document(job).await;
-        let elapsed = started.elapsed();
-
-        match attempt {
+        match client.next_document(job, document_timeout).await {
             Ok(NextDoc::Document(bytes)) => {
                 if !format_matches(format, &bytes) {
                     return PagesOutcome::Failed {
@@ -61,7 +52,5 @@ pub(super) async fn fetch_pages(
             Ok(NextDoc::Canceled) => return PagesOutcome::Canceled { pages },
             Err(error) => return PagesOutcome::Failed { pages, error },
         }
-
-        tokio::time::sleep(next_delay(elapsed)).await;
     }
 }

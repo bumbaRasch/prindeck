@@ -196,6 +196,7 @@ pub struct ScanCaps {
     pub make_and_model: String,
     pub platen: InputCaps,
     pub adf: Option<InputCaps>,
+    pub feeder_capacity: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -248,6 +249,30 @@ impl Region {
             width: caps.max_width,
             height: caps.max_height,
         }
+    }
+}
+
+fn region_for(source: Source, input_caps: &InputCaps, platen: &InputCaps) -> Region {
+    match source {
+        Source::Platen => Region::from_caps(input_caps),
+        Source::Feeder => Region {
+            height: platen.max_height,
+            ..Region::from_caps(input_caps)
+        },
+    }
+}
+
+const FEEDER_PAGE_SECONDS: u64 = 8;
+const FEEDER_FETCH_SLACK: Duration = Duration::from_secs(20);
+
+pub fn fetch_timeout(source: Source, caps: &ScanCaps) -> Duration {
+    match source {
+        Source::Platen => NEXT_DOCUMENT_TIMEOUT,
+        Source::Feeder => caps
+            .feeder_capacity
+            .map_or(NEXT_DOCUMENT_TIMEOUT, |capacity| {
+                Duration::from_secs(FEEDER_PAGE_SECONDS) * capacity + FEEDER_FETCH_SLACK
+            }),
     }
 }
 
@@ -425,7 +450,7 @@ impl EsclClient {
                 EsclError::InvalidParams("the device does not support the feeder".to_string())
             })?,
         };
-        let region = Region::from_caps(input_caps);
+        let region = region_for(params.source, input_caps, &caps.platen);
         let body = params.to_xml(region);
         let url = self.endpoint("ScanJobs")?;
 
@@ -456,13 +481,13 @@ impl EsclClient {
         resolve_job_url(&self.base, location)
     }
 
-    pub async fn next_document(&self, job: &Url) -> Result<NextDoc, EsclError> {
+    pub async fn next_document(&self, job: &Url, timeout: Duration) -> Result<NextDoc, EsclError> {
         let url = subresource(job, "NextDocument")?;
 
         let response = self
             .http
             .get(url)
-            .timeout(NEXT_DOCUMENT_TIMEOUT)
+            .timeout(timeout)
             .send()
             .await
             .map_err(map_transport)?;
@@ -589,6 +614,7 @@ enum CapsField {
     DocumentFormat,
     DocumentFormatExt,
     XResolution,
+    FeederCapacity,
 }
 
 fn parse_capabilities(xml: &str) -> Result<ScanCaps, EsclError> {
@@ -598,6 +624,7 @@ fn parse_capabilities(xml: &str) -> Result<ScanCaps, EsclError> {
     let mut make_and_model: Option<String> = None;
     let mut platen: Option<InputCaps> = None;
     let mut adf: Option<InputCaps> = None;
+    let mut feeder_capacity: Option<u32> = None;
     let mut section = CapsSection::None;
     let mut current: Option<InputCaps> = None;
     let mut field: Option<CapsField> = None;
@@ -623,6 +650,7 @@ fn parse_capabilities(xml: &str) -> Result<ScanCaps, EsclError> {
                 "ColorMode" => field = Some(CapsField::ColorMode),
                 "DocumentFormat" => field = Some(CapsField::DocumentFormat),
                 "DocumentFormatExt" => field = Some(CapsField::DocumentFormatExt),
+                "FeederCapacity" => field = Some(CapsField::FeederCapacity),
                 "XResolution" if current.is_some() => field = Some(CapsField::XResolution),
                 _ => {}
             },
@@ -671,6 +699,9 @@ fn parse_capabilities(xml: &str) -> Result<ScanCaps, EsclError> {
                             push_unique(&mut caps.resolutions, resolution);
                         }
                     }
+                    CapsField::FeederCapacity => {
+                        feeder_capacity = Some(parse_u32(value, "FeederCapacity")?);
+                    }
                     _ => {}
                 }
             }
@@ -707,6 +738,7 @@ fn parse_capabilities(xml: &str) -> Result<ScanCaps, EsclError> {
         make_and_model,
         platen,
         adf,
+        feeder_capacity,
     })
 }
 
@@ -869,6 +901,7 @@ mod tests {
         let adf = caps.adf.expect("ADF is present");
         assert_eq!(adf.max_width, 2550);
         assert_eq!(adf.max_height, 4200);
+        assert_eq!(caps.feeder_capacity, Some(20));
         assert_eq!(adf.resolutions, vec![100, 200, 300, 600]);
         assert_eq!(
             adf.color_modes,
@@ -879,6 +912,56 @@ mod tests {
             ]
         );
         assert_eq!(adf.formats, vec![DocFormat::Pdf, DocFormat::Jpeg]);
+    }
+
+    #[test]
+    fn feeder_region_clips_to_a4_height() {
+        let caps = parse_capabilities(CAPABILITIES_XML).expect("capabilities parse");
+        let adf = caps.adf.expect("ADF is present");
+        assert_eq!(adf.max_height, 4200);
+
+        let feeder = region_for(Source::Feeder, &adf, &caps.platen);
+        assert_eq!(feeder.width, 2550);
+        assert_eq!(feeder.height, 3507);
+
+        let platen = region_for(Source::Platen, &caps.platen, &caps.platen);
+        assert_eq!(platen.height, 3507);
+
+        let params = ScanParams {
+            source: Source::Feeder,
+            ..sample_params()
+        };
+        let xml = params.to_xml(feeder);
+        assert!(xml.contains("<pwg:Height>3507</pwg:Height>"));
+        assert!(!xml.contains("<pwg:Height>4200</pwg:Height>"));
+    }
+
+    #[test]
+    fn fetch_timeouts_scale_with_the_stack() {
+        let caps = parse_capabilities(CAPABILITIES_XML).expect("capabilities parse");
+
+        assert_eq!(
+            fetch_timeout(Source::Platen, &caps),
+            Duration::from_secs(120)
+        );
+        assert_eq!(
+            fetch_timeout(Source::Feeder, &caps),
+            Duration::from_secs(180)
+        );
+
+        let mut single = caps.clone();
+        single.feeder_capacity = Some(1);
+        assert_eq!(
+            fetch_timeout(Source::Feeder, &single),
+            Duration::from_secs(28)
+        );
+
+        let mut unknown = caps;
+        unknown.feeder_capacity = None;
+        assert_eq!(
+            fetch_timeout(Source::Feeder, &unknown),
+            Duration::from_secs(120)
+        );
     }
 
     #[test]

@@ -1,6 +1,9 @@
 use std::fs;
 
-use super::{dir_has_no_part_files, jpeg_page, sample_time, unique_temp_dir};
+use super::{
+    adf_jpeg_pages, dir_has_no_part_files, jpeg_page, sample_time, saved_file_names,
+    unique_temp_dir,
+};
 use crate::commands::ScanErrorKind;
 use crate::commands::scan_files::{page_file_names, part_path, unique_path, write_pages};
 use crate::escl::DocFormat;
@@ -36,12 +39,22 @@ fn complete_single_pdf_keeps_base_name() {
 }
 
 #[test]
-fn multi_page_pdf_names_pages_until_merge() {
-    let names = page_file_names(sample_time(), DocFormat::Pdf, 2, true);
+fn pdf_pages_share_the_stack_name() {
+    let names = page_file_names(sample_time(), DocFormat::Pdf, 2, false);
 
     assert_eq!(
         names,
-        vec!["scan-20261027-141530-p1.pdf", "scan-20261027-141530-p2.pdf"]
+        vec!["scan-20261027-141530.pdf", "scan-20261027-141530.pdf"]
+    );
+
+    let partial = page_file_names(sample_time(), DocFormat::Pdf, 2, true);
+
+    assert_eq!(
+        partial,
+        vec![
+            "scan-20261027-141530-partial.pdf",
+            "scan-20261027-141530-partial.pdf"
+        ]
     );
 }
 
@@ -105,17 +118,8 @@ fn write_pages_writes_unique_page_files() {
     );
 
     assert!(storage.is_none());
-    let names: Vec<String> = files
-        .iter()
-        .map(|file| {
-            file.file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or_default()
-                .to_string()
-        })
-        .collect();
     assert_eq!(
-        names,
+        saved_file_names(&files),
         vec![
             "scan-20261027-141530-p1-2.jpg",
             "scan-20261027-141530-p2.jpg"
@@ -130,6 +134,29 @@ fn write_pages_writes_unique_page_files() {
         jpeg_page(2)
     );
     assert!(dir_has_no_part_files(&dir));
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn writes_device_jpeg_stack() {
+    let dir = unique_temp_dir("device-jpeg");
+    let pages = adf_jpeg_pages();
+
+    let (files, storage) = write_pages(&dir, JOB_ID, DocFormat::Jpeg, &pages, false, sample_time());
+
+    assert!(storage.is_none());
+    assert_eq!(
+        saved_file_names(&files),
+        vec![
+            "scan-20261027-141530-p1.jpg",
+            "scan-20261027-141530-p2.jpg",
+            "scan-20261027-141530-p3.jpg"
+        ]
+    );
+    for (file, page) in files.iter().zip(&pages) {
+        assert_eq!(fs::read(file).expect("read the saved page"), *page);
+    }
 
     let _ = fs::remove_dir_all(&dir);
 }

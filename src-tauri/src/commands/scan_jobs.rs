@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use chrono::Local;
 use reqwest::Url;
@@ -29,10 +30,11 @@ pub(super) async fn run_scan(
     job_id: String,
     job: Url,
     format: DocFormat,
+    document_timeout: Duration,
 ) {
     emit_progress(&app, &job_id, ScanPhase::Scanning, 0);
 
-    let outcome = fetch_pages(&client, &job, format, |pages| {
+    let outcome = fetch_pages(&client, &job, format, document_timeout, |pages| {
         emit_progress(&app, &job_id, ScanPhase::Scanning, pages);
     })
     .await;

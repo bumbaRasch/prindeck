@@ -19,6 +19,9 @@ tmp/
 *.tiff
 *.pnm
 
+# Device-verified eSCL fixtures are tracked despite the jpg rule
+!fixtures/escl/adf/*
+
 # Secrets
 .env
 .env.*
