@@ -86,7 +86,9 @@ function handleScanError(payload: ScanError): void {
   finishJob(payload.jobId);
   state.phase = null;
   state.errorText = payload.message;
-  state.esclFailed = true;
+  if (payload.kind === "transport") {
+    state.esclFailed = true;
+  }
   render();
 }
 

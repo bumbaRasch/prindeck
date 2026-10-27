@@ -6,7 +6,9 @@ use reqwest::Url;
 use tauri::{AppHandle, Manager};
 
 use super::scan_files::{format_matches, part_path, remove_part, unique_scan_path};
-use super::{AppState, ScanPhase, emit_done, emit_error, emit_progress, user_message};
+use super::{
+    AppState, ScanErrorKind, ScanFailure, ScanPhase, emit_done, emit_error, emit_progress,
+};
 use crate::escl::{DocFormat, EsclClient, NextDoc};
 
 const ADF_NOT_SUPPORTED: &str =
@@ -17,7 +19,7 @@ const NO_DOCUMENT: &str = "the device returned no document";
 enum ScanOutcome {
     Done(PathBuf),
     Canceled,
-    Failed(String),
+    Failed(ScanFailure),
 }
 
 pub(super) async fn run_scan(
@@ -42,9 +44,9 @@ pub(super) async fn run_scan(
             tracing::info!(%job_id, "scan canceled");
             emit_progress(&app, &job_id, ScanPhase::Canceled, 0);
         }
-        ScanOutcome::Failed(message) => {
-            tracing::warn!(%job_id, %message, "scan failed");
-            emit_error(&app, &job_id, message);
+        ScanOutcome::Failed(failure) => {
+            tracing::warn!(%job_id, kind = ?failure.kind, message = %failure.message, "scan failed");
+            emit_error(&app, &job_id, failure);
         }
     }
 
@@ -67,19 +69,25 @@ async fn fetch_document(
                 if written {
                     best_effort_cancel(client, job).await;
                     remove_part(&part);
-                    return ScanOutcome::Failed(ADF_NOT_SUPPORTED.to_string());
+                    return ScanOutcome::Failed(ScanFailure::new(
+                        ScanErrorKind::Device,
+                        ADF_NOT_SUPPORTED,
+                    ));
                 }
 
                 if !format_matches(format, &bytes) {
                     best_effort_cancel(client, job).await;
                     remove_part(&part);
-                    return ScanOutcome::Failed(UNEXPECTED_FORMAT.to_string());
+                    return ScanOutcome::Failed(ScanFailure::new(
+                        ScanErrorKind::Device,
+                        UNEXPECTED_FORMAT,
+                    ));
                 }
 
                 if let Err(error) = fs::write(&part, &bytes) {
                     remove_part(&part);
                     best_effort_cancel(client, job).await;
-                    return ScanOutcome::Failed(format!("failed to save the file: {error}"));
+                    return save_failure(error);
                 }
 
                 written = true;
@@ -87,13 +95,16 @@ async fn fetch_document(
             Ok(NextDoc::End) => {
                 if !written {
                     remove_part(&part);
-                    return ScanOutcome::Failed(NO_DOCUMENT.to_string());
+                    return ScanOutcome::Failed(ScanFailure::new(
+                        ScanErrorKind::Device,
+                        NO_DOCUMENT,
+                    ));
                 }
 
                 let target = unique_scan_path(scan_dir, Local::now(), format);
                 if let Err(error) = fs::rename(&part, &target) {
                     remove_part(&part);
-                    return ScanOutcome::Failed(format!("failed to save the file: {error}"));
+                    return save_failure(error);
                 }
 
                 return ScanOutcome::Done(target);
@@ -105,10 +116,17 @@ async fn fetch_document(
             Err(error) => {
                 remove_part(&part);
                 best_effort_cancel(client, job).await;
-                return ScanOutcome::Failed(user_message(&error));
+                return ScanOutcome::Failed(ScanFailure::from_escl(&error));
             }
         }
     }
+}
+
+fn save_failure(error: std::io::Error) -> ScanOutcome {
+    ScanOutcome::Failed(ScanFailure::new(
+        ScanErrorKind::Storage,
+        format!("failed to save the file: {error}"),
+    ))
 }
 
 pub(super) async fn best_effort_cancel(client: &EsclClient, job: &Url) {

@@ -1,13 +1,27 @@
 use tauri::{AppHandle, State};
 
 use super::scan_jobs::{best_effort_cancel, run_scan};
-use super::{AppState, ScanPhase, emit_progress, lock, user_message};
+use super::{AppState, ScanErrorKind, ScanFailure, ScanPhase, emit_progress, lock, user_message};
 use crate::escl::{CancelOutcome, ScanParams, ScannerState};
 
 pub const JOB_PATH_PREFIX: &str = "/eSCL/ScanJobs/";
 
 const INVALID_JOB_ID: &str = "invalid job id";
 const JOB_NOT_FOUND: &str = "job not found";
+
+pub enum StartRejection {
+    Busy,
+    DuplicateJob,
+}
+
+pub fn rejection_failure(rejection: StartRejection) -> ScanFailure {
+    match rejection {
+        StartRejection::Busy => ScanFailure::new(ScanErrorKind::Busy, "the device is busy"),
+        StartRejection::DuplicateJob => {
+            ScanFailure::new(ScanErrorKind::Invalid, "this job is already running")
+        }
+    }
+}
 
 pub fn validate_job_id(job_id: &str) -> Result<(), String> {
     let Some(rest) = job_id.strip_prefix(JOB_PATH_PREFIX) else {
@@ -32,24 +46,25 @@ pub async fn start_scan(
     app: AppHandle,
     state: State<'_, AppState>,
     params: ScanParams,
-) -> Result<String, String> {
+) -> Result<String, ScanFailure> {
     let status = state.client.status().await.map_err(|error| {
         tracing::warn!(%error, "scanner status request failed");
-        user_message(&error)
+        ScanFailure::from_escl(&error)
     })?;
 
     if status.state != ScannerState::Idle {
-        return Err("the device is busy".to_string());
+        return Err(rejection_failure(StartRejection::Busy));
     }
 
     let job = state.client.start(&params).await.map_err(|error| {
         tracing::warn!(%error, "scan start request failed");
-        user_message(&error)
+        ScanFailure::from_escl(&error)
     })?;
     let job_id = job.path().to_string();
 
     let duplicate = {
-        let mut jobs = lock(&state.jobs)?;
+        let mut jobs = lock(&state.jobs)
+            .map_err(|message| ScanFailure::new(ScanErrorKind::Device, message))?;
         let duplicate = jobs.contains_key(&job_id);
         if !duplicate {
             jobs.insert(job_id.clone(), job.clone());
@@ -59,7 +74,7 @@ pub async fn start_scan(
 
     if duplicate {
         best_effort_cancel(&state.client, &job).await;
-        return Err("this job is already running".to_string());
+        return Err(rejection_failure(StartRejection::DuplicateJob));
     }
 
     tracing::info!(

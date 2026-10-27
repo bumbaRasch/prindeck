@@ -46,6 +46,14 @@ export interface ScanCaps {
 
 export type ScanPhase = "created" | "scanning" | "done" | "canceled";
 
+export type ScanErrorKind =
+  | "transport"
+  | "busy"
+  | "invalid"
+  | "device"
+  | "storage"
+  | "canceled";
+
 export interface ScanProgress {
   jobId: string;
   phase: ScanPhase;
@@ -59,5 +67,6 @@ export interface ScanDone {
 
 export interface ScanError {
   jobId: string;
+  kind: ScanErrorKind;
   message: string;
 }

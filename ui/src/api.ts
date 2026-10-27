@@ -6,11 +6,56 @@ import type {
   ScanCaps,
   ScanDone,
   ScanError,
+  ScanErrorKind,
   ScanParams,
   ScanProgress,
 } from "./types";
 
 export type UnlistenFn = () => void;
+
+const SCAN_ERROR_KINDS: readonly string[] = [
+  "transport",
+  "busy",
+  "invalid",
+  "device",
+  "storage",
+  "canceled",
+];
+
+function isScanErrorKind(value: unknown): value is ScanErrorKind {
+  return typeof value === "string" && SCAN_ERROR_KINDS.includes(value);
+}
+
+export class ScanFailureError extends Error {
+  readonly kind: ScanErrorKind;
+
+  constructor(kind: ScanErrorKind, message: string) {
+    super(message);
+    this.kind = kind;
+  }
+}
+
+function toScanFailure(error: unknown): ScanFailureError {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "kind" in error &&
+    "message" in error
+  ) {
+    const payload = error as { kind: unknown; message: unknown };
+    const kind = isScanErrorKind(payload.kind) ? payload.kind : "device";
+    const message =
+      typeof payload.message === "string" && payload.message !== ""
+        ? payload.message
+        : TEXT.requestFailed;
+    return new ScanFailureError(kind, message);
+  }
+  return new ScanFailureError("device", errorText(error));
+}
+
+export function scanFailureKind(error: unknown): ScanErrorKind | null {
+  return error instanceof ScanFailureError ? error.kind : null;
+}
 
 export function errorText(error: unknown): string {
   if (typeof error === "string" && error.trim() !== "") {
@@ -30,8 +75,12 @@ export function getStartupError(): Promise<string | null> {
   return invoke<string | null>("get_startup_error");
 }
 
-export function startScan(params: ScanParams): Promise<string> {
-  return invoke<string>("start_scan", { params });
+export async function startScan(params: ScanParams): Promise<string> {
+  try {
+    return await invoke<string>("start_scan", { params });
+  } catch (error) {
+    throw toScanFailure(error);
+  }
 }
 
 export function cancelScan(jobId: string): Promise<void> {

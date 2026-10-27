@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::commands::{ScanDone, ScanError, user_message};
+use crate::commands::{ScanDone, ScanError, ScanErrorKind, ScanFailure, user_message};
 use crate::escl::EsclError;
 
 fn sample_error(status: u16, body: &str) -> EsclError {
@@ -8,6 +8,10 @@ fn sample_error(status: u16, body: &str) -> EsclError {
         status,
         body: body.to_string(),
     }
+}
+
+fn kind_of(error: &EsclError) -> ScanErrorKind {
+    ScanFailure::from_escl(error).kind
 }
 
 #[test]
@@ -50,6 +54,47 @@ fn user_message_keeps_http_code_for_other_statuses() {
 }
 
 #[test]
+fn classifies_scan_error_kinds() {
+    assert_eq!(kind_of(&EsclError::Timeout), ScanErrorKind::Transport);
+    assert_eq!(
+        kind_of(&EsclError::Transport("connect refused".to_string())),
+        ScanErrorKind::Transport
+    );
+    assert_eq!(kind_of(&sample_error(503, "")), ScanErrorKind::Busy);
+    assert_eq!(kind_of(&sample_error(409, "")), ScanErrorKind::Invalid);
+    assert_eq!(
+        kind_of(&EsclError::InvalidParams(
+            "the device does not support 150 dpi".to_string()
+        )),
+        ScanErrorKind::Invalid
+    );
+    assert_eq!(
+        kind_of(&EsclError::InvalidUrl("bad url".to_string())),
+        ScanErrorKind::Invalid
+    );
+    assert_eq!(
+        kind_of(&sample_error(500, "<e>Feeder empty</e>")),
+        ScanErrorKind::Device
+    );
+    assert_eq!(kind_of(&sample_error(418, "")), ScanErrorKind::Device);
+    assert_eq!(
+        kind_of(&EsclError::Parse("bad xml".to_string())),
+        ScanErrorKind::Device
+    );
+}
+
+#[test]
+fn scan_failure_serializes_kind_and_message() {
+    let failure = ScanFailure::from_escl(&EsclError::Timeout);
+    let value = serde_json::to_value(&failure).expect("failure serializes");
+
+    assert_eq!(
+        value,
+        json!({ "kind": "transport", "message": "the device is not responding" })
+    );
+}
+
+#[test]
 fn serializes_done_and_error_payloads() {
     let job_id = "/eSCL/ScanJobs/abc";
 
@@ -68,11 +113,16 @@ fn serializes_done_and_error_payloads() {
 
     let error = serde_json::to_value(ScanError {
         job_id: job_id.to_string(),
+        kind: ScanErrorKind::Busy,
         message: "the device is busy".to_string(),
     })
     .expect("error serializes");
     assert_eq!(
         error,
-        json!({ "jobId": job_id, "message": "the device is busy" })
+        json!({
+            "jobId": job_id,
+            "kind": "busy",
+            "message": "the device is busy"
+        })
     );
 }

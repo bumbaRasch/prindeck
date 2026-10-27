@@ -1,4 +1,4 @@
-import { cancelScan, errorText, openScanFolder, startScan } from "../api";
+import { cancelScan, errorText, openScanFolder, scanFailureKind, startScan } from "../api";
 import {
   activeInput,
   colorOptions,
@@ -100,7 +100,9 @@ async function handleStart(state: AppState): Promise<void> {
     }
   } catch (error) {
     state.errorText = errorText(error);
-    state.esclFailed = true;
+    if (scanFailureKind(error) === "transport") {
+      state.esclFailed = true;
+    }
     state.jobId = null;
     state.phase = null;
     state.pages = 0;

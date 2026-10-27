@@ -7,11 +7,12 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 use crate::config::Config;
-use crate::escl::{EsclClient, EsclError, ScanCaps};
+use crate::escl::{EsclClient, ScanCaps};
 use caps::resolve_state;
 
 mod caps;
 mod scan;
+mod scan_errors;
 mod scan_files;
 mod scan_jobs;
 mod status;
@@ -79,6 +80,7 @@ pub struct ScanDone {
 #[serde(rename_all = "camelCase")]
 pub struct ScanError {
     pub job_id: String,
+    pub kind: ScanErrorKind,
     pub message: String,
 }
 
@@ -105,10 +107,11 @@ fn emit_done(app: &AppHandle, job_id: &str, file: &Path) {
     }
 }
 
-fn emit_error(app: &AppHandle, job_id: &str, message: String) {
+fn emit_error(app: &AppHandle, job_id: &str, failure: ScanFailure) {
     let payload = ScanError {
         job_id: job_id.to_string(),
-        message,
+        kind: failure.kind,
+        message: failure.message,
     };
 
     if let Err(error) = app.emit(EVENT_ERROR, payload) {
@@ -116,34 +119,9 @@ fn emit_error(app: &AppHandle, job_id: &str, message: String) {
     }
 }
 
-pub fn user_message(error: &EsclError) -> String {
-    match error {
-        EsclError::Http { status: 503, .. } => "the device is busy".to_string(),
-        EsclError::Http { status: 409, .. } => {
-            "the device does not support this combination of settings".to_string()
-        }
-        EsclError::Http { status: 500, body } if mentions_feeder(body) => {
-            "the feeder is out of paper".to_string()
-        }
-        EsclError::Timeout => "the device is not responding".to_string(),
-        EsclError::Transport(_) => "no connection to the device".to_string(),
-        EsclError::InvalidParams(message) => message.clone(),
-        EsclError::Http { status, .. } => format!("the device returned HTTP {status}"),
-        EsclError::Parse(_) => "the device returned an unexpected response".to_string(),
-        EsclError::InvalidUrl(_) => "invalid device address".to_string(),
-    }
-}
-
-fn mentions_feeder(body: &str) -> bool {
-    let body = body.to_ascii_lowercase();
-
-    ["feeder", "adf", "no document", "paper"]
-        .iter()
-        .any(|needle| body.contains(needle))
-}
-
 pub use caps::{get_capabilities, get_startup_error, open_scan_folder};
 pub use scan::{cancel_scan, start_scan};
+pub use scan_errors::{ScanErrorKind, ScanFailure, user_message};
 pub use status::{get_status, open_printer_panel, refresh_status};
 
 pub use caps::{

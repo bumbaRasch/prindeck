@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use chrono::{DateTime, Local, TimeZone};
 use serde_json::json;
 
-use crate::commands::scan::validate_job_id;
+use crate::commands::scan::{StartRejection, rejection_failure, validate_job_id};
 use crate::commands::scan_files::{format_matches, part_path, scan_file_name, unique_scan_path};
-use crate::commands::{ScanPhase, ScanProgress};
+use crate::commands::{ScanErrorKind, ScanPhase, ScanProgress};
 use crate::escl::DocFormat;
 
 fn sample_time() -> DateTime<Local> {
@@ -27,6 +27,22 @@ fn unique_temp_dir(name: &str) -> PathBuf {
     ));
     fs::create_dir_all(&dir).expect("create temp dir");
     dir
+}
+
+#[test]
+fn busy_refusal_maps_to_busy_kind() {
+    let failure = rejection_failure(StartRejection::Busy);
+
+    assert_eq!(failure.kind, ScanErrorKind::Busy);
+    assert_eq!(failure.message, "the device is busy");
+}
+
+#[test]
+fn duplicate_job_maps_to_invalid_kind() {
+    let failure = rejection_failure(StartRejection::DuplicateJob);
+
+    assert_eq!(failure.kind, ScanErrorKind::Invalid);
+    assert_eq!(failure.message, "this job is already running");
 }
 
 #[test]
