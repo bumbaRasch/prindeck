@@ -32,6 +32,7 @@ fn round_trip() {
         pages_total: Some(7753),
         duplex_pages: Some(3967),
         drum_pages_left: Some(4247),
+        jam_count: Some(8),
         polled_at: Some("2026-10-27T15:04:05.678912345+00:00".to_string()),
         error: None,
     };

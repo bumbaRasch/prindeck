@@ -50,3 +50,36 @@ pub fn parse_records(blob: &[u8]) -> Result<Vec<(u8, u32)>, BlobError> {
         rest = &tail[6..];
     }
 }
+
+pub fn parse_width_records(blob: &[u8]) -> Result<Vec<(u8, u32)>, BlobError> {
+    let mut records = Vec::new();
+    let mut rest = blob;
+
+    loop {
+        let Some((&id, tail)) = rest.split_first() else {
+            return Err(BlobError::MissingTerminator);
+        };
+
+        if id == 0xff {
+            return Ok(records);
+        }
+
+        let Some((&width, value_bytes)) = tail.split_first() else {
+            return Err(BlobError::Truncated);
+        };
+
+        let width = usize::from(width);
+        if width == 0 || width > 4 {
+            return Err(BlobError::BadHeader { id });
+        }
+
+        let Some(value) = value_bytes.get(..width) else {
+            return Err(BlobError::Truncated);
+        };
+
+        let mut raw = [0u8; 4];
+        raw[4 - width..].copy_from_slice(value);
+        records.push((id, u32::from_be_bytes(raw)));
+        rest = &value_bytes[width..];
+    }
+}
