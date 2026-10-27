@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, RwLock};
 
 use reqwest::Url;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
-use crate::config::Config;
+use crate::config::{Config, ConfigHandle};
 use crate::escl::{EsclClient, ScanCaps};
 use caps::resolve_state;
 
@@ -17,6 +17,7 @@ mod scan_errors;
 mod scan_files;
 mod scan_jobs;
 mod scan_pages;
+mod settings;
 mod status;
 
 pub const EVENT_PROGRESS: &str = "scan-progress";
@@ -27,8 +28,8 @@ const FALLBACK_BASE_URL: &str = "http://127.0.0.1:9/eSCL/";
 
 #[derive(Debug)]
 pub struct AppState {
-    pub config: Config,
-    pub client: EsclClient,
+    pub config: ConfigHandle,
+    client: RwLock<EsclClient>,
     caps: Mutex<Option<ScanCaps>>,
     jobs: Mutex<HashMap<String, Url>>,
     startup_error: Option<String>,
@@ -37,14 +38,28 @@ pub struct AppState {
 impl AppState {
     pub fn initialize() -> AppState {
         let (config, client, startup_error) = resolve_state();
+        AppState::from_parts(config, client, startup_error)
+    }
 
+    pub(super) fn from_parts(
+        config: Config,
+        client: EsclClient,
+        startup_error: Option<String>,
+    ) -> AppState {
         AppState {
-            config,
-            client,
+            config: ConfigHandle::new(config),
+            client: RwLock::new(client),
             caps: Mutex::new(None),
             jobs: Mutex::new(HashMap::new()),
             startup_error,
         }
+    }
+
+    pub fn client(&self) -> EsclClient {
+        self.client
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 }
 
@@ -138,6 +153,7 @@ pub use caps::{get_capabilities, get_startup_error, open_scan_folder};
 pub use print::{cancel_print, get_queue, print_file};
 pub use scan::{cancel_scan, start_scan};
 pub use scan_errors::{ScanErrorKind, ScanFailure, user_message};
+pub use settings::{get_config, set_config};
 pub use status::{get_status, open_printer_panel, refresh_status};
 
 pub use caps::{
@@ -152,6 +168,10 @@ pub use print::{
 pub use scan::{
     __cmd__cancel_scan, __cmd__start_scan, __tauri_command_name_cancel_scan,
     __tauri_command_name_start_scan,
+};
+pub use settings::{
+    __cmd__get_config, __cmd__set_config, __tauri_command_name_get_config,
+    __tauri_command_name_set_config,
 };
 pub use status::{
     __cmd__get_status, __cmd__open_printer_panel, __cmd__refresh_status,

@@ -24,7 +24,7 @@ pub async fn refresh_status(app: AppHandle) -> Result<DeviceStatus, String> {
 
 #[tauri::command]
 pub fn open_printer_panel(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    let url = format!("http://{}/", state.config.device.host);
+    let url = format!("http://{}/", state.config.get().device.host);
 
     app.opener()
         .open_url(url, None::<&str>)

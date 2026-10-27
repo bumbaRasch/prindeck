@@ -48,7 +48,7 @@ pub async fn start_scan(
     state: State<'_, AppState>,
     params: ScanParams,
 ) -> Result<String, ScanFailure> {
-    let caps = load_caps(&state.client, &state.caps)
+    let caps = load_caps(&state.client(), &state.caps)
         .await
         .map_err(|error| {
             tracing::warn!(%error, "capabilities request failed");
@@ -56,7 +56,7 @@ pub async fn start_scan(
         })?;
     let document_timeout = fetch_timeout(params.source, &caps);
 
-    let status = state.client.status().await.map_err(|error| {
+    let status = state.client().status().await.map_err(|error| {
         tracing::warn!(%error, "scanner status request failed");
         ScanFailure::from_escl(&error)
     })?;
@@ -65,7 +65,7 @@ pub async fn start_scan(
         return Err(rejection_failure(StartRejection::Busy));
     }
 
-    let job = state.client.start(&params).await.map_err(|error| {
+    let job = state.client().start(&params).await.map_err(|error| {
         tracing::warn!(%error, "scan start request failed");
         ScanFailure::from_escl(&error)
     })?;
@@ -82,7 +82,7 @@ pub async fn start_scan(
     };
 
     if duplicate {
-        best_effort_cancel(&state.client, &job).await;
+        best_effort_cancel(&state.client(), &job).await;
         return Err(rejection_failure(StartRejection::DuplicateJob));
     }
 
@@ -97,8 +97,8 @@ pub async fn start_scan(
 
     emit_progress(&app, &job_id, ScanPhase::Created, 0);
 
-    let client = state.client.clone();
-    let scan_dir = state.config.scan_dir.clone();
+    let client = state.client();
+    let scan_dir = state.config.get().scan_dir.clone();
     let format = params.format;
     let task_job_id = job_id.clone();
 
@@ -125,7 +125,7 @@ pub async fn cancel_scan(state: State<'_, AppState>, job_id: String) -> Result<(
             .ok_or_else(|| JOB_NOT_FOUND.to_string())?
     };
 
-    match state.client.cancel(&job).await {
+    match state.client().cancel(&job).await {
         Ok(CancelOutcome::Canceled | CancelOutcome::AlreadyFinished) => Ok(()),
         Err(error) => {
             tracing::warn!(%error, %job_id, "scan cancel request failed");

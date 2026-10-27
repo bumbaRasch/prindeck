@@ -1,6 +1,11 @@
+use std::path::Path;
+use std::time::Duration;
+
 use chrono::DateTime;
 
+use super::poll::next_delay;
 use super::{StatusCache, now_rfc3339};
+use crate::config::{Config, ConfigHandle};
 use crate::snmp::SnmpCounters;
 
 const HOST: &str = "192.168.187.36";
@@ -58,4 +63,25 @@ fn timestamp_is_rfc3339_utc() {
     let parsed = DateTime::parse_from_rfc3339(&now_rfc3339()).unwrap();
 
     assert_eq!(parsed.offset().local_minus_utc(), 0);
+}
+
+fn config_with_poll_seconds(seconds: u64) -> Config {
+    let mut config = Config::defaults_for(Path::new("/home/user"), None);
+    config.poll_seconds = seconds;
+    config
+}
+
+#[test]
+fn next_delay_rereads_the_interval_per_tick() {
+    let handle = ConfigHandle::new(config_with_poll_seconds(5));
+
+    assert_eq!(
+        next_delay(&handle),
+        Duration::from_secs(60),
+        "a below-minimum interval keeps the documented clamp"
+    );
+
+    handle.set(config_with_poll_seconds(300));
+
+    assert_eq!(next_delay(&handle), Duration::from_secs(300));
 }

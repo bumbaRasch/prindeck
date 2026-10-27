@@ -4,34 +4,36 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use super::{DeviceStatus, EVENT_STATUS, StatusCache};
 use crate::commands::AppState;
+use crate::config::ConfigHandle;
 use crate::history::{HistoryHandle, Snapshot, try_record};
 use crate::snmp::SnmpClient;
 
 const RETRY_DELAY: Duration = Duration::from_secs(2);
 
 pub fn start_polling(app: AppHandle) {
-    let interval = app.state::<AppState>().config.poll_interval();
-
     tauri::async_runtime::spawn(async move {
-        let mut ticker = tokio::time::interval(interval);
-
         loop {
-            ticker.tick().await;
-
             if !poll_now(app.clone()).await.ok {
                 tokio::time::sleep(RETRY_DELAY).await;
                 poll_now(app.clone()).await;
             }
+
+            let delay = next_delay(&app.state::<AppState>().config);
+            tokio::time::sleep(delay).await;
         }
     });
 }
 
+pub(super) fn next_delay(handle: &ConfigHandle) -> Duration {
+    handle.get().poll_interval()
+}
+
 pub async fn poll_now(app: AppHandle) -> DeviceStatus {
     let (host, community) = {
-        let state = app.state::<AppState>();
+        let config = app.state::<AppState>().config.get();
         (
-            state.config.device.host.clone(),
-            state.config.snmp_community().to_owned(),
+            config.device.host.clone(),
+            config.snmp_community().to_owned(),
         )
     };
     let cache = app.state::<StatusCache>();

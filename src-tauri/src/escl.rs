@@ -430,6 +430,10 @@ impl EsclClient {
         Ok(EsclClient { base, http })
     }
 
+    pub fn base(&self) -> &Url {
+        &self.base
+    }
+
     pub async fn capabilities(&self) -> Result<ScanCaps, EsclError> {
         let xml = self.get_xml("ScannerCapabilities").await?;
         parse_capabilities(&xml)

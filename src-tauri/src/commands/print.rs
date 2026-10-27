@@ -99,7 +99,7 @@ pub async fn print_file(
     let sides = sides_from_ipc(&sides)?;
     check_copies(copies)?;
 
-    let queue = state.config.cups_queue.clone();
+    let queue = state.config.get().cups_queue.clone();
     let path = PathBuf::from(path);
     let options = PrintOptions { copies, sides };
 
@@ -108,13 +108,13 @@ pub async fn print_file(
 
 #[tauri::command]
 pub async fn get_queue(state: State<'_, AppState>) -> Result<Vec<CupsJob>, String> {
-    let queue = state.config.cups_queue.clone();
+    let queue = state.config.get().cups_queue.clone();
     run_cups(move || cups::queue_jobs(&queue)).await
 }
 
 #[tauri::command]
 pub async fn cancel_print(state: State<'_, AppState>, job_id: String) -> Result<(), String> {
-    if !job_belongs_to_queue(&job_id, &state.config.cups_queue) {
+    if !job_belongs_to_queue(&job_id, &state.config.get().cups_queue) {
         tracing::warn!(
             job_id,
             "refused to cancel a job outside the configured queue"

@@ -1,12 +1,10 @@
 use std::fs;
-use std::path::PathBuf;
 
-use super::sample;
+use serde_json::json;
+
+use super::{sample, sample_json};
 use crate::config::host::validate_host;
-use crate::config::{
-    Config, ConfigError, DEFAULT_CUPS_QUEUE, DEFAULT_HOST, DEFAULT_POLL_SECONDS,
-    DEFAULT_SNMP_COMMUNITY, DeviceConfig, SnmpConfig,
-};
+use crate::config::{Config, ConfigError, DEFAULT_HOST};
 
 #[test]
 fn json_round_trip() {
@@ -19,16 +17,13 @@ fn json_round_trip() {
 
 #[test]
 fn unknown_fields_are_ignored() {
-    let json = r#"{
-        "device": { "host": "192.168.187.36", "futureField": 1 },
-        "scanDir": "/tmp/scans",
-        "anotherFutureField": { "nested": true }
-    }"#;
+    let mut json = sample_json();
+    json["futureField"] = json!({ "nested": true });
+    json["device"]["futureField"] = json!(1);
 
-    let config = Config::from_json_str(json).expect("unknown fields are ignored");
+    let config = Config::from_json_str(&json.to_string()).expect("unknown fields are ignored");
 
-    assert_eq!(config.device.host, DEFAULT_HOST);
-    assert_eq!(config.scan_dir, PathBuf::from("/tmp/scans"));
+    assert_eq!(config, sample());
 }
 
 #[test]
@@ -40,8 +35,9 @@ fn broken_json_is_an_error() {
 
 #[test]
 fn empty_host_is_an_error() {
-    let json = r#"{"device":{"host":""},"scanDir":"/tmp/scans"}"#;
-    let error = Config::from_json_str(json).expect_err("empty host must fail");
+    let mut json = sample_json();
+    json["device"]["host"] = json!("");
+    let error = Config::from_json_str(&json.to_string()).expect_err("empty host must fail");
 
     assert!(matches!(error, ConfigError::InvalidHost(_)));
 }
@@ -60,44 +56,48 @@ fn host_with_scheme_or_slash_is_an_error() {
         );
     }
 
-    let json = r#"{"device":{"host":"http://192.168.187.36"},"scanDir":"/tmp/scans"}"#;
+    let mut json = sample_json();
+    json["device"]["host"] = json!("http://192.168.187.36");
     assert!(matches!(
-        Config::from_json_str(json),
+        Config::from_json_str(&json.to_string()),
         Err(ConfigError::InvalidHost(_))
     ));
 }
 
 #[test]
 fn empty_scan_dir_is_an_error() {
-    let json = r#"{"device":{"host":"192.168.187.36"},"scanDir":""}"#;
-    let error = Config::from_json_str(json).expect_err("empty scan dir must fail");
+    let mut json = sample_json();
+    json["scanDir"] = json!("");
+    let error = Config::from_json_str(&json.to_string()).expect_err("empty scan dir must fail");
 
     assert!(matches!(error, ConfigError::InvalidScanDir(_)));
 }
 
 #[test]
 fn empty_cups_queue_is_an_error() {
-    let json = r#"{"device":{"host":"192.168.187.36"},"scanDir":"/tmp/scans","cupsQueue":""}"#;
-    let error = Config::from_json_str(json).expect_err("empty cups queue must fail");
+    let mut json = sample_json();
+    json["cupsQueue"] = json!("");
+    let error = Config::from_json_str(&json.to_string()).expect_err("empty cups queue must fail");
 
     assert!(matches!(error, ConfigError::InvalidCupsQueue(_)));
 }
 
 #[test]
 fn invalid_host_is_still_a_hard_error() {
-    let json = r#"{"device":{"host":"bad host"},"scanDir":"/tmp/scans"}"#;
+    let mut json = sample_json();
+    json["device"]["host"] = json!("bad host");
 
     assert!(matches!(
-        Config::from_json_str(json),
+        Config::from_json_str(&json.to_string()),
         Err(ConfigError::InvalidHost(_))
     ));
 }
 
 #[test]
 fn explicit_empty_community_stays_empty() {
-    let json =
-        r#"{"device":{"host":"192.168.187.36"},"scanDir":"/tmp/scans","snmp":{"community":""}}"#;
-    let config = Config::from_json_str(json).expect("explicit empty community parses");
+    let mut json = sample_json();
+    json["snmp"]["community"] = json!("");
+    let config = Config::from_json_str(&json.to_string()).expect("explicit empty community parses");
 
     assert_eq!(config.snmp.community, "");
     assert_eq!(config.snmp_community(), "");
@@ -113,17 +113,8 @@ fn base_url_is_built_from_host() {
 
 #[test]
 fn base_url_keeps_port() {
-    let config = Config {
-        device: DeviceConfig {
-            host: "192.168.187.36:8080".to_string(),
-        },
-        scan_dir: PathBuf::from("/tmp/scans"),
-        cups_queue: DEFAULT_CUPS_QUEUE.to_string(),
-        snmp: SnmpConfig {
-            community: DEFAULT_SNMP_COMMUNITY.to_string(),
-        },
-        poll_seconds: DEFAULT_POLL_SECONDS,
-    };
+    let mut config = sample();
+    config.device.host = "192.168.187.36:8080".to_string();
     let url = config.base_url().expect("base url");
 
     assert_eq!(url.as_str(), "http://192.168.187.36:8080/eSCL/");
@@ -143,11 +134,10 @@ fn load_or_create_reads_existing_file_and_creates_scan_dir() {
     let root = std::env::temp_dir().join(unique);
     let path = root.join("prindeck").join("config.json");
     let scan_dir = root.join("scans");
-    let json = format!(
-        r#"{{"device":{{"host":"{}"}},"scanDir":"{}"}}"#,
-        DEFAULT_HOST,
-        scan_dir.display()
-    );
+
+    let mut config = sample();
+    config.scan_dir = scan_dir.clone();
+    let json = serde_json::to_string(&config).expect("config serializes");
 
     fs::create_dir_all(path.parent().expect("config parent")).expect("create config dir");
     fs::write(&path, json).expect("write config");

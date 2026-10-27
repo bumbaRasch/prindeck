@@ -5,13 +5,17 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 mod error;
+mod handle;
 mod host;
+mod notify;
 mod store;
 
 #[cfg(test)]
 mod tests;
 
 pub use error::ConfigError;
+pub use handle::ConfigHandle;
+pub use notify::{NotifyConfig, TonerConfig};
 
 pub const DEFAULT_HOST: &str = "192.168.187.36";
 pub const DEFAULT_CUPS_QUEUE: &str = "Brother_MFC_L2710DW_series";
@@ -89,6 +93,8 @@ pub struct Config {
         deserialize_with = "deserialize_poll_seconds"
     )]
     pub poll_seconds: u64,
+    pub notify: NotifyConfig,
+    pub toner: TonerConfig,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -121,6 +127,8 @@ impl Config {
             cups_queue: DEFAULT_CUPS_QUEUE.to_string(),
             snmp: default_snmp(),
             poll_seconds: DEFAULT_POLL_SECONDS,
+            notify: NotifyConfig::defaults(),
+            toner: TonerConfig::defaults(),
         }
     }
 
@@ -133,6 +141,8 @@ impl Config {
     pub fn validate(&self) -> Result<(), ConfigError> {
         host::validate_host(&self.device.host)?;
         host::validate_queue(&self.cups_queue)?;
+        self.notify.validate()?;
+        self.toner.validate()?;
 
         if self.scan_dir.as_os_str().is_empty() {
             return Err(ConfigError::InvalidScanDir(

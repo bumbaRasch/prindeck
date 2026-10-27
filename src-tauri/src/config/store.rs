@@ -21,19 +21,22 @@ impl Config {
                 let config = default_config()?;
                 config.validate()?;
                 config.ensure_scan_dir()?;
-
-                if let Some(parent) = path.parent()
-                    && !parent.as_os_str().is_empty()
-                {
-                    fs::create_dir_all(parent).map_err(ConfigError::Io)?;
-                }
-
-                let json = serde_json::to_string_pretty(&config).map_err(ConfigError::Serde)?;
-                fs::write(path, json).map_err(ConfigError::Io)?;
+                config.save(path)?;
                 Ok(config)
             }
             Err(error) => Err(ConfigError::Io(error)),
         }
+    }
+
+    pub fn save(&self, path: &Path) -> Result<(), ConfigError> {
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent).map_err(ConfigError::Io)?;
+        }
+
+        let json = serde_json::to_string_pretty(self).map_err(ConfigError::Serde)?;
+        fs::write(path, json).map_err(ConfigError::Io)
     }
 }
 

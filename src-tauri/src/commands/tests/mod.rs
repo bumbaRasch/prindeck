@@ -5,6 +5,7 @@ mod scan_files_tests;
 mod scan_pages_tests;
 mod scan_tests;
 mod scan_truncation_tests;
+mod settings_tests;
 mod terminal_tests;
 
 use std::path::{Path, PathBuf};

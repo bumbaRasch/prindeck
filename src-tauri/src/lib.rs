@@ -47,14 +47,16 @@ pub fn run() {
                 tracing::error!(%error, "failed to create the tray icon");
             }
 
-            let host = app.state::<AppState>().config.device.host.clone();
-            app.manage(status::StatusCache::new(host));
+            let config = app.state::<AppState>().config.get();
+            app.manage(status::StatusCache::new(config.device.host.clone()));
 
-            let scan_dir = app.state::<AppState>().config.scan_dir.clone();
-            if let Err(error) = app.asset_protocol_scope().allow_directory(&scan_dir, false) {
+            if let Err(error) = app
+                .asset_protocol_scope()
+                .allow_directory(&config.scan_dir, false)
+            {
                 tracing::warn!(
                     %error,
-                    dir = %scan_dir.display(),
+                    dir = %config.scan_dir.display(),
                     "failed to allow the scan directory for the asset protocol"
                 );
             }
@@ -86,6 +88,8 @@ pub fn run() {
             commands::cancel_scan,
             commands::open_scan_folder,
             commands::get_startup_error,
+            commands::get_config,
+            commands::set_config,
             commands::get_status,
             commands::refresh_status,
             commands::open_printer_panel,

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use super::sample;
+use super::{sample, sample_json};
 use crate::config::{
     Config, DEFAULT_CUPS_QUEUE, DEFAULT_HOST, DEFAULT_POLL_SECONDS, DEFAULT_SNMP_COMMUNITY,
 };
@@ -61,9 +61,31 @@ fn poll_seconds_bounds_are_inclusive() {
 }
 
 #[test]
-fn missing_new_keys_use_defaults() {
-    let json = r#"{"device":{"host":"192.168.187.36"},"scanDir":"/tmp/scans"}"#;
-    let config = Config::from_json_str(json).expect("missing keys use defaults");
+fn notify_defaults_are_enabled_with_design_thresholds() {
+    let config = Config::defaults_for(Path::new("/home/user"), None);
+
+    assert!(config.notify.enabled);
+    assert_eq!(config.notify.toner_percent, 15);
+    assert_eq!(config.notify.drum_percent, 10);
+}
+
+#[test]
+fn toner_defaults_are_unset() {
+    let config = Config::defaults_for(Path::new("/home/user"), None);
+
+    assert_eq!(config.toner.model, None);
+    assert_eq!(config.toner.yield_pages, None);
+}
+
+#[test]
+fn missing_m25_keys_use_defaults() {
+    let mut json = sample_json();
+    let object = json.as_object_mut().expect("config json is an object");
+    object.remove("cupsQueue");
+    object.remove("snmp");
+    object.remove("pollSeconds");
+
+    let config = Config::from_json_str(&json.to_string()).expect("missing m2.5 keys use defaults");
 
     assert_eq!(config.snmp.community, DEFAULT_SNMP_COMMUNITY);
     assert_eq!(config.poll_seconds, DEFAULT_POLL_SECONDS);
@@ -72,8 +94,13 @@ fn missing_new_keys_use_defaults() {
 
 #[test]
 fn wrong_typed_poll_seconds_is_repaired_to_default() {
-    let json = r#"{"device":{"host":"10.0.0.5"},"scanDir":"/tmp/scans","pollSeconds":"ten"}"#;
-    let config = Config::from_json_str(json).expect("wrong-typed pollSeconds is repaired");
+    let mut json = sample_json();
+    json["device"]["host"] = serde_json::json!("10.0.0.5");
+    json["scanDir"] = serde_json::json!("/tmp/scans");
+    json["pollSeconds"] = serde_json::json!("ten");
+
+    let config =
+        Config::from_json_str(&json.to_string()).expect("wrong-typed pollSeconds is repaired");
 
     assert_eq!(config.device.host, "10.0.0.5");
     assert_eq!(config.scan_dir, PathBuf::from("/tmp/scans"));
@@ -83,8 +110,13 @@ fn wrong_typed_poll_seconds_is_repaired_to_default() {
 
 #[test]
 fn wrong_typed_community_is_repaired_to_default() {
-    let json = r#"{"device":{"host":"10.0.0.5"},"scanDir":"/tmp/scans","snmp":{"community":42}}"#;
-    let config = Config::from_json_str(json).expect("wrong-typed community is repaired");
+    let mut json = sample_json();
+    json["device"]["host"] = serde_json::json!("10.0.0.5");
+    json["scanDir"] = serde_json::json!("/tmp/scans");
+    json["snmp"]["community"] = serde_json::json!(42);
+
+    let config =
+        Config::from_json_str(&json.to_string()).expect("wrong-typed community is repaired");
 
     assert_eq!(config.device.host, "10.0.0.5");
     assert_eq!(config.scan_dir, PathBuf::from("/tmp/scans"));

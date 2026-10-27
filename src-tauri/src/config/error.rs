@@ -8,6 +8,8 @@ pub enum ConfigError {
     InvalidHost(String),
     InvalidCupsQueue(String),
     InvalidScanDir(String),
+    InvalidNotify(String),
+    InvalidToner(String),
     NoConfigDir,
     NoHomeDir,
 }
@@ -25,6 +27,12 @@ impl fmt::Display for ConfigError {
             }
             ConfigError::InvalidScanDir(message) => {
                 write!(f, "invalid scan folder: {message}")
+            }
+            ConfigError::InvalidNotify(message) => {
+                write!(f, "invalid notification settings: {message}")
+            }
+            ConfigError::InvalidToner(message) => {
+                write!(f, "invalid toner settings: {message}")
             }
             ConfigError::NoConfigDir => {
                 write!(f, "failed to determine the config directory")
