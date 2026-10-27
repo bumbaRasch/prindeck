@@ -4,6 +4,7 @@ mod escl_server;
 mod scan_files_tests;
 mod scan_pages_tests;
 mod scan_tests;
+mod scan_truncation_tests;
 mod terminal_tests;
 
 use std::path::{Path, PathBuf};
@@ -42,11 +43,11 @@ fn dir_has_no_part_files(dir: &Path) -> bool {
 }
 
 fn jpeg_page(marker: u8) -> Vec<u8> {
-    vec![0xFF, 0xD8, 0xFF, 0xE0, marker]
+    vec![0xFF, 0xD8, 0xFF, 0xE0, marker, 0xFF, 0xD9]
 }
 
 fn pdf_page(marker: u8) -> Vec<u8> {
-    format!("%PDF-1.4 page {marker}").into_bytes()
+    format!("%PDF-1.4 page {marker}%%EOF\r\n").into_bytes()
 }
 
 fn adf_jpeg_pages() -> Vec<Vec<u8>> {
@@ -59,6 +60,10 @@ fn adf_jpeg_pages() -> Vec<Vec<u8>> {
 
 fn adf_pdf_stack() -> Vec<u8> {
     include_bytes!("../../../../fixtures/escl/adf/adf-2sheets-300-gray.pdf").to_vec()
+}
+
+fn adf_truncated_pdf() -> Vec<u8> {
+    include_bytes!("../../../../fixtures/escl/adf/adf-truncated-cancel.pdf").to_vec()
 }
 
 fn saved_file_names(files: &[std::path::PathBuf]) -> Vec<String> {

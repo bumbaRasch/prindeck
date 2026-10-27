@@ -13,6 +13,17 @@ pub fn format_matches(format: DocFormat, bytes: &[u8]) -> bool {
     }
 }
 
+pub fn document_complete(format: DocFormat, bytes: &[u8]) -> bool {
+    match format {
+        DocFormat::Pdf => {
+            bytes.ends_with(b"%%EOF\r\n")
+                || bytes.ends_with(b"%%EOF\n")
+                || bytes.ends_with(b"%%EOF")
+        }
+        DocFormat::Jpeg => bytes.ends_with(&[0xFF, 0xD9]),
+    }
+}
+
 pub fn extension_for(format: DocFormat) -> &'static str {
     match format {
         DocFormat::Pdf => "pdf",

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use reqwest::Url;
 
-use super::scan_files::format_matches;
+use super::scan_files::{document_complete, format_matches};
 use crate::escl::{DocFormat, EsclClient, EsclError, NextDoc};
 
 #[derive(Debug)]
@@ -27,6 +27,7 @@ pub(super) async fn fetch_pages(
     mut on_page: impl FnMut(u32),
 ) -> PagesOutcome {
     let mut pages: Vec<Vec<u8>> = Vec::new();
+    let mut truncated = false;
 
     loop {
         match client.next_document(job, document_timeout).await {
@@ -37,10 +38,20 @@ pub(super) async fn fetch_pages(
                         error: EsclError::Parse("unexpected document format".to_string()),
                     };
                 }
+                if !document_complete(format, &bytes) {
+                    truncated = true;
+                    continue;
+                }
                 pages.push(bytes);
                 on_page(pages.len() as u32);
             }
             Ok(NextDoc::End) => {
+                if truncated {
+                    return PagesOutcome::Failed {
+                        pages,
+                        error: EsclError::Parse("truncated document".to_string()),
+                    };
+                }
                 if pages.is_empty() {
                     return PagesOutcome::Failed {
                         pages,
