@@ -1,5 +1,4 @@
 use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -7,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 mod error;
 mod host;
+mod store;
 
 #[cfg(test)]
 mod tests;
@@ -108,11 +108,6 @@ pub struct SnmpConfig {
 }
 
 impl Config {
-    pub fn default_path() -> Result<PathBuf, ConfigError> {
-        let dir = dirs::config_dir().ok_or(ConfigError::NoConfigDir)?;
-        Ok(dir.join("prindeck").join("config.json"))
-    }
-
     pub fn defaults_for(home: &Path, documents: Option<&Path>) -> Config {
         let documents = documents
             .map(Path::to_path_buf)
@@ -135,40 +130,9 @@ impl Config {
         Ok(config)
     }
 
-    pub fn load_or_create(path: &Path) -> Result<Config, ConfigError> {
-        match fs::read_to_string(path) {
-            Ok(text) => {
-                let config = Config::from_json_str(&text)?;
-                config.ensure_scan_dir()?;
-                Ok(config)
-            }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                let config = default_config()?;
-                config.validate()?;
-                config.ensure_scan_dir()?;
-
-                if let Some(parent) = path.parent()
-                    && !parent.as_os_str().is_empty()
-                {
-                    fs::create_dir_all(parent).map_err(ConfigError::Io)?;
-                }
-
-                let json = serde_json::to_string_pretty(&config).map_err(ConfigError::Serde)?;
-                fs::write(path, json).map_err(ConfigError::Io)?;
-                Ok(config)
-            }
-            Err(error) => Err(ConfigError::Io(error)),
-        }
-    }
-
     pub fn validate(&self) -> Result<(), ConfigError> {
         host::validate_host(&self.device.host)?;
-
-        if self.cups_queue.trim().is_empty() {
-            return Err(ConfigError::InvalidCupsQueue(
-                "the CUPS queue name is not set".to_string(),
-            ));
-        }
+        host::validate_queue(&self.cups_queue)?;
 
         if self.scan_dir.as_os_str().is_empty() {
             return Err(ConfigError::InvalidScanDir(
@@ -201,11 +165,4 @@ impl Config {
     pub fn snmp_community(&self) -> &str {
         self.snmp.community.trim()
     }
-}
-
-fn default_config() -> Result<Config, ConfigError> {
-    let home = dirs::home_dir().ok_or(ConfigError::NoHomeDir)?;
-    let documents = dirs::document_dir();
-
-    Ok(Config::defaults_for(&home, documents.as_deref()))
 }

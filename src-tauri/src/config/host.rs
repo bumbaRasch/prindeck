@@ -36,6 +36,16 @@ pub(super) fn validate_host(host: &str) -> Result<(), ConfigError> {
     Ok(())
 }
 
+pub(super) fn validate_queue(queue: &str) -> Result<(), ConfigError> {
+    if queue.trim().is_empty() {
+        return Err(ConfigError::InvalidCupsQueue(
+            "the CUPS queue name is not set".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
 impl Config {
     pub fn base_url(&self) -> Result<reqwest::Url, ConfigError> {
         validate_host(&self.device.host)?;
