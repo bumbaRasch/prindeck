@@ -9,75 +9,163 @@
   </head>
 
   <body>
-    <main id="app" class="screen">
-      <header class="screen-header">
-        <h1 class="screen-title">Скан</h1>
-        <p id="device-model" class="device-model"></p>
-      </header>
+    <svg class="sprite" aria-hidden="true">
+      <symbol id="i-scan" viewBox="0 0 24 24">
+        <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+        <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+        <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+        <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+        <path d="M7 12h10" />
+      </symbol>
+      <symbol id="i-gauge" viewBox="0 0 24 24">
+        <path d="m12 14 4-4" />
+        <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+      </symbol>
+    </svg>
 
-      <div id="startup-banner" class="banner banner--warn" role="status" hidden>
-        <div class="banner-body">
-          <p class="banner-title">Проблема с конфигурацией</p>
-          <p id="startup-banner-text" class="banner-text"></p>
-        </div>
-      </div>
+    <div id="shell">
+      <nav class="sidebar" aria-label="Навигация">
+        <p class="app-name">prindeck</p>
 
-      <div id="caps-banner" class="banner banner--error" role="alert" hidden>
-        <div class="banner-body">
-          <p class="banner-title">Устройство недоступно</p>
-          <p id="caps-banner-text" class="banner-text"></p>
-        </div>
-        <button id="caps-retry" class="button button--ghost" type="button">
-          Повторить
-        </button>
-      </div>
-
-      <form id="scan-form" class="panel" novalidate>
-        <div class="fields">
-          <label class="field">
-            <span class="field-label">Источник</span>
-            <select id="source" class="select"></select>
-          </label>
-          <label class="field">
-            <span class="field-label">Разрешение</span>
-            <select id="dpi" class="select"></select>
-          </label>
-          <label class="field">
-            <span class="field-label">Цвет</span>
-            <select id="color" class="select"></select>
-          </label>
-          <label class="field">
-            <span class="field-label">Формат</span>
-            <select id="format" class="select"></select>
-          </label>
+        <div id="device-status" class="device-status">
+          <span class="device-status-dot" data-tone="idle" aria-hidden="true"></span>
+          <p id="device-model" class="device-status-model"></p>
         </div>
 
-        <p id="format-hint" class="hint" hidden></p>
+        <ul class="nav-list">
+          <li>
+            <button
+              class="nav-item"
+              type="button"
+              data-nav="scan"
+              title="Скан"
+              aria-label="Скан"
+              aria-current="page"
+            >
+              <svg
+                class="nav-icon"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <use href="#i-scan" />
+              </svg>
+              <span class="nav-label">Скан</span>
+            </button>
+          </li>
+          <li>
+            <button
+              class="nav-item"
+              type="button"
+              data-nav="overview"
+              title="Обзор"
+              aria-label="Обзор"
+              tabindex="-1"
+            >
+              <svg
+                class="nav-icon"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <use href="#i-gauge" />
+              </svg>
+              <span class="nav-label">Обзор</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
 
-        <div class="actions">
-          <button id="start" class="button button--primary" type="submit">
-            Сканировать
+      <main class="content">
+        <header class="content-header">
+          <h1 id="screen-title" class="screen-title" tabindex="-1">Скан</h1>
+          <p
+            id="status"
+            class="status"
+            role="status"
+            aria-live="polite"
+            data-tone="idle"
+          ></p>
+        </header>
+
+        <div id="startup-banner" class="banner banner--warn" role="status" hidden>
+          <div class="banner-body">
+            <p class="banner-title">Проблема с конфигурацией</p>
+            <p id="startup-banner-text" class="banner-text"></p>
+          </div>
+        </div>
+
+        <div id="caps-banner" class="banner banner--error" role="alert" hidden>
+          <div class="banner-body">
+            <p class="banner-title">Устройство недоступно</p>
+            <p id="caps-banner-text" class="banner-text"></p>
+          </div>
+          <button id="caps-retry" class="button button--ghost" type="button">
+            Повторить
           </button>
-          <button
-            id="cancel"
-            class="button button--secondary"
-            type="button"
-            hidden
-          >
-            Отмена
-          </button>
         </div>
 
-        <p id="status" class="status" role="status" aria-live="polite"></p>
-      </form>
+        <section data-screen="scan" class="screen">
+          <form id="scan-form" class="panel" novalidate>
+            <div class="fields">
+              <label class="field">
+                <span class="field-label">Источник</span>
+                <select id="source" class="select"></select>
+              </label>
+              <label class="field">
+                <span class="field-label">Разрешение</span>
+                <select id="dpi" class="select"></select>
+              </label>
+              <label class="field">
+                <span class="field-label">Цвет</span>
+                <select id="color" class="select"></select>
+              </label>
+              <label class="field">
+                <span class="field-label">Формат</span>
+                <select id="format" class="select"></select>
+              </label>
+            </div>
 
-      <section id="result" class="result" hidden>
-        <h2 class="result-title">Файл готов</h2>
-        <code id="result-path" class="result-path"></code>
-        <button id="open-folder" class="button button--secondary" type="button">
-          Открыть папку
-        </button>
-      </section>
-    </main>
+            <p id="format-hint" class="hint" hidden></p>
+
+            <div class="actions">
+              <button id="start" class="button button--primary" type="submit">
+                Сканировать
+              </button>
+              <button
+                id="cancel"
+                class="button button--secondary"
+                type="button"
+                hidden
+              >
+                Отмена
+              </button>
+            </div>
+          </form>
+
+          <section id="result" class="result" hidden>
+            <h2 class="result-title">Файл готов</h2>
+            <code id="result-path" class="result-path"></code>
+            <button id="open-folder" class="button button--secondary" type="button">
+              Открыть папку
+            </button>
+          </section>
+        </section>
+
+        <section data-screen="overview" class="screen" hidden></section>
+      </main>
+    </div>
   </body>
 </html>

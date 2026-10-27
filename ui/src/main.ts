@@ -1,4 +1,5 @@
 import {
+  errorText,
   getCapabilities,
   getStartupError,
   onScanDone,
@@ -8,13 +9,10 @@ import {
 } from "./api";
 import { initRouter } from "./router";
 import { createState } from "./state";
-import { capsRetry, initShell, renderShell } from "./shell";
+import { initShell, renderShell } from "./shell";
 import type { ScanDone, ScanError, ScanProgress } from "./types";
-import {
-  errorText,
-  initScanScreen,
-  renderScanScreen,
-} from "./screens/scan";
+import { initOverviewScreen, renderOverviewScreen } from "./screens/overview";
+import { initScanScreen, renderScanScreen } from "./screens/scan";
 
 const state = createState();
 
@@ -130,16 +128,16 @@ async function registerListeners(): Promise<void> {
 
 function render(): void {
   renderScanScreen(state);
+  renderOverviewScreen();
 }
 
 function init(): void {
-  initShell();
-  initRouter(render);
-  initScanScreen(() => state);
-
-  capsRetry.addEventListener("click", () => {
+  initShell(() => {
     void loadCapabilities();
   });
+  initRouter(render);
+  initScanScreen(() => state);
+  initOverviewScreen();
 
   void registerListeners();
   void loadStartupError();

@@ -1,4 +1,9 @@
-import type { ColorMode, DocFormat, Source } from "./types";
+import type { ColorMode, DocFormat, Screen, Source } from "./types";
+
+export const SCREEN_TITLES: Record<Screen, string> = {
+  scan: "Скан",
+  overview: "Обзор",
+};
 
 export const SOURCE_LABELS: Record<Source, string> = {
   Platen: "Планшет",

@@ -1,4 +1,4 @@
-import { cancelScan, openScanFolder, startScan } from "../api";
+import { cancelScan, errorText, openScanFolder, startScan } from "../api";
 import {
   activeInput,
   colorOptions,
@@ -28,16 +28,6 @@ const els = {
   resultPath: mustQuery<HTMLElement>("#result-path"),
   openFolder: mustQuery<HTMLButtonElement>("#open-folder"),
 };
-
-export function errorText(error: unknown): string {
-  if (typeof error === "string" && error.trim() !== "") {
-    return error;
-  }
-  if (error instanceof Error && error.message !== "") {
-    return error.message;
-  }
-  return TEXT.requestFailed;
-}
 
 export function renderScanScreen(state: AppState): void {
   normalizeSelections(state);

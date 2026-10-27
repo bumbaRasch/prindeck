@@ -70,4 +70,3 @@ export function currentParams(state: AppState): ScanParams | null {
   }
   return { source, dpi, color, format };
 }
-

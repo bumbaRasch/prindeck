@@ -2,15 +2,13 @@ import { mustQuery } from "./dom";
 import { TEXT } from "./labels";
 import { pluralPages, type AppState } from "./state";
 
-export const capsRetry = mustQuery<HTMLButtonElement>("#caps-retry");
-
 const els = {
   deviceModel: mustQuery<HTMLParagraphElement>("#device-model"),
   startupBanner: mustQuery<HTMLDivElement>("#startup-banner"),
   startupBannerText: mustQuery<HTMLParagraphElement>("#startup-banner-text"),
   capsBanner: mustQuery<HTMLDivElement>("#caps-banner"),
   capsBannerText: mustQuery<HTMLParagraphElement>("#caps-banner-text"),
-  capsRetry,
+  capsRetry: mustQuery<HTMLButtonElement>("#caps-retry"),
   status: mustQuery<HTMLParagraphElement>("#status"),
 };
 
@@ -67,4 +65,8 @@ export function renderShell(state: AppState): void {
   els.status.dataset["tone"] = status.tone;
 }
 
-export function initShell(): void {}
+export function initShell(onCapsRetry: () => void): void {
+  els.capsRetry.addEventListener("click", () => {
+    onCapsRetry();
+  });
+}

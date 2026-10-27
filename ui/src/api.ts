@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { TEXT } from "./labels";
 import type {
   ScanCaps,
   ScanDone,
@@ -9,6 +10,16 @@ import type {
 } from "./types";
 
 export type UnlistenFn = () => void;
+
+export function errorText(error: unknown): string {
+  if (typeof error === "string" && error.trim() !== "") {
+    return error;
+  }
+  if (error instanceof Error && error.message !== "") {
+    return error.message;
+  }
+  return TEXT.requestFailed;
+}
 
 export function getCapabilities(): Promise<ScanCaps> {
   return invoke<ScanCaps>("get_capabilities");

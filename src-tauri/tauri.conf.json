@@ -16,7 +16,9 @@
         "label": "main",
         "title": "prindeck",
         "width": 900,
-        "height": 680
+        "height": 680,
+        "minWidth": 640,
+        "minHeight": 480
       }
     ],
     "security": {
