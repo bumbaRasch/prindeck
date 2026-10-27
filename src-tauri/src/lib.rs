@@ -2,6 +2,7 @@ pub mod commands;
 pub mod config;
 pub mod escl;
 pub mod history;
+pub mod notify;
 pub mod print;
 pub mod snmp;
 pub mod status;
@@ -40,6 +41,7 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState::initialize())
         .setup(|app| {
             #[cfg(desktop)]
@@ -49,6 +51,7 @@ pub fn run() {
 
             let config = app.state::<AppState>().config.get();
             app.manage(status::StatusCache::new(config.device.host.clone()));
+            app.manage(notify::State::default());
 
             if let Err(error) = app
                 .asset_protocol_scope()

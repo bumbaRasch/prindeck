@@ -6,6 +6,7 @@ use super::{DeviceStatus, EVENT_STATUS, StatusCache};
 use crate::commands::AppState;
 use crate::config::ConfigHandle;
 use crate::history::{HistoryHandle, Snapshot, try_record};
+use crate::notify;
 use crate::snmp::SnmpClient;
 
 const RETRY_DELAY: Duration = Duration::from_secs(2);
@@ -59,6 +60,7 @@ pub async fn poll_now(app: AppHandle) -> DeviceStatus {
         try_record(&handle, &Snapshot::from_status(&snapshot));
     }
     emit_status(&app, &snapshot);
+    notify::on_poll(&app, &snapshot);
     snapshot
 }
 
