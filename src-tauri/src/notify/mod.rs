@@ -22,11 +22,14 @@ const NOTIFY_SILENT_TITLE_LABEL: &str = "Принтер не отвечает";
 const NOTIFY_SILENT_BODY_LABEL: &str = "Устройство не отвечает уже на три опроса подряд";
 const NOTIFY_BACK_TITLE_LABEL: &str = "Принтер снова доступен";
 const NOTIFY_BACK_BODY_LABEL: &str = "Связь с устройством восстановлена";
+const NOTIFY_TEST_TITLE_LABEL: &str = "Проверка уведомлений";
+const NOTIFY_TEST_BODY_LABEL: &str = "Уведомления работают";
 
 const NOTIFY_TONER_ID: i32 = 1;
 const NOTIFY_DRUM_ID: i32 = 2;
 const NOTIFY_SILENT_ID: i32 = 3;
 const NOTIFY_BACK_ID: i32 = 4;
+const NOTIFY_TEST_ID: i32 = 5;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct AlertPayload {
@@ -90,6 +93,29 @@ fn show(app: &AppHandle, kind: NotifyKind) {
 
     if let Err(error) = shown {
         tracing::warn!(%error, kind = kind.code(), "failed to show a notification");
+    }
+}
+
+pub fn test_notification_payload() -> (i32, String, String) {
+    (
+        NOTIFY_TEST_ID,
+        NOTIFY_TEST_TITLE_LABEL.to_string(),
+        NOTIFY_TEST_BODY_LABEL.to_string(),
+    )
+}
+
+pub fn show_test(app: &AppHandle) {
+    let (id, title, body) = test_notification_payload();
+    let shown = app
+        .notification()
+        .builder()
+        .id(id)
+        .title(title)
+        .body(body)
+        .show();
+
+    if let Err(error) = shown {
+        tracing::warn!(%error, "failed to show the test notification");
     }
 }
 

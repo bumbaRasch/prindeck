@@ -2,14 +2,19 @@ import { mustQuery } from "./dom";
 import { SCREEN_TITLES } from "./labels";
 import type { Screen } from "./types";
 
-const SCREENS: readonly Screen[] = ["scan", "overview", "print"];
+const SCREENS: readonly Screen[] = ["scan", "overview", "print", "settings"];
 
 function isScreen(value: string | undefined): value is Screen {
-  return value === "scan" || value === "overview" || value === "print";
+  return (
+    value === "scan" ||
+    value === "overview" ||
+    value === "print" ||
+    value === "settings"
+  );
 }
 
 let current: Screen = "scan";
-let notify: ((screen: Screen) => void) | null = null;
+const listeners: ((screen: Screen) => void)[] = [];
 let screenTitle: HTMLHeadingElement;
 const sections = new Map<Screen, HTMLElement>();
 const navItems = new Map<Screen, HTMLButtonElement>();
@@ -48,8 +53,12 @@ function moveFocusedNav(from: Screen, offset: number): void {
   target.focus();
 }
 
+export function onScreenChange(callback: (screen: Screen) => void): void {
+  listeners.push(callback);
+}
+
 export function initRouter(onChange: (screen: Screen) => void): void {
-  notify = onChange;
+  listeners.push(onChange);
   screenTitle = mustQuery<HTMLHeadingElement>("#screen-title");
 
   for (const node of document.querySelectorAll<HTMLElement>("[data-screen]")) {
@@ -97,8 +106,10 @@ export function setScreen(screen: Screen): Screen {
   current = screen;
   apply(screen);
   screenTitle.focus();
-  if (previous !== screen && notify !== null) {
-    notify(screen);
+  if (previous !== screen) {
+    for (const listener of listeners) {
+      listener(screen);
+    }
   }
   return current;
 }

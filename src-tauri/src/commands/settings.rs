@@ -3,10 +3,16 @@ use tauri::{AppHandle, Manager, State};
 use super::AppState;
 use super::caps::rebuild_client;
 use crate::config::Config;
+use crate::notify;
 
 #[tauri::command]
 pub fn get_config(state: State<'_, AppState>) -> Config {
     state.config.get()
+}
+
+#[tauri::command]
+pub fn test_notification(app: AppHandle) {
+    notify::show_test(&app);
 }
 
 #[tauri::command]

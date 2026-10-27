@@ -158,7 +158,7 @@ pub use caps::{get_capabilities, get_startup_error, open_scan_folder};
 pub use print::{cancel_print, get_queue, print_file};
 pub use scan::{cancel_scan, start_scan};
 pub use scan_errors::{ScanErrorKind, ScanFailure, user_message};
-pub use settings::{get_config, set_config};
+pub use settings::{get_config, set_config, test_notification};
 pub use status::{get_status, open_printer_panel, open_status_page, refresh_status};
 
 pub use caps::{
@@ -175,8 +175,9 @@ pub use scan::{
     __tauri_command_name_start_scan,
 };
 pub use settings::{
-    __cmd__get_config, __cmd__set_config, __tauri_command_name_get_config,
-    __tauri_command_name_set_config,
+    __cmd__get_config, __cmd__set_config, __cmd__test_notification,
+    __tauri_command_name_get_config, __tauri_command_name_set_config,
+    __tauri_command_name_test_notification,
 };
 pub use status::{
     __cmd__get_status, __cmd__open_printer_panel, __cmd__refresh_status,

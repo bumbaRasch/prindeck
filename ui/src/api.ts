@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { TEXT } from "./labels";
 import type {
+  Config,
   CupsJob,
   DeviceStatus,
   ScanCaps,
@@ -149,4 +150,16 @@ export function onNavigate(
   callback: (screen: string) => void,
 ): Promise<UnlistenFn> {
   return listen<string>("navigate", (event) => callback(event.payload));
+}
+
+export function getConfig(): Promise<Config> {
+  return invoke<Config>("get_config");
+}
+
+export function setConfig(config: Config): Promise<Config> {
+  return invoke<Config>("set_config", { config });
+}
+
+export function testNotification(): Promise<void> {
+  return invoke<void>("test_notification");
 }

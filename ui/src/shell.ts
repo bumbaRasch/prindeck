@@ -7,6 +7,7 @@ import {
   type AppState,
 } from "./state";
 import type { Tone } from "./types";
+import { initSettingsScreen } from "./screens/settings";
 
 const els = {
   deviceDot: mustQuery<HTMLElement>(".device-status-dot"),
@@ -25,6 +26,9 @@ const els = {
 let connBannerShown: boolean | null = null;
 
 function statusView(state: AppState): { text: string; tone: Tone } {
+  if (currentScreen() === "settings") {
+    return { text: "", tone: "idle" };
+  }
   if (currentScreen() === "print") {
     return printStatusView(state);
   }
@@ -125,4 +129,5 @@ export function initShell(
   els.connRetry.addEventListener("click", () => {
     onStatusRetry();
   });
+  initSettingsScreen();
 }
