@@ -537,23 +537,23 @@ git commit -m "M2: device overview screen and scan indicator"
 ### Task 9: Review-findings sweep before completion
 
 **Files:**
-- Modify: whatever the recorded findings name — Critical/Important in code with tests, Minor/Low in docs only (`PRD.md`, `docs/*.md`, this plan); `scripts/line-count-baseline.txt` when a split retires an entry
+- Modify: whatever the recorded findings name — code with covering tests for every severity; docs (`PRD.md`, `docs/*.md`, this plan) where a fix changes documented behaviour; `scripts/line-count-baseline.txt` when a split retires an entry
 
 **Interfaces:**
 - Consumes: every task review's findings from Tasks 1–8 as recorded in the SDD ledger; `npm run check:line-count` (Global Constraints).
-- Produces: a tree with no open Critical/Important findings, every Minor/Low finding fixed or answered in docs, and an accurate line-count baseline.
+- Produces: a tree with no open findings of any severity and an accurate line-count baseline.
 
 - [ ] **Step 1: Enumerate the findings**
 
 Collect every Critical/Important/Minor finding from the Tasks 1–8 review packages (source: the SDD ledger). A finding already resolved stays listed with its resolution.
 
-- [ ] **Step 2: Fix Critical and Important in code**
+- [ ] **Step 2: Fix every open finding in code**
 
-Each fix lands with its covering tests run; no behaviour change beyond what the finding demands.
+Critical, Important, Minor and Low alike — each fix lands with its covering tests run; no behaviour change beyond what the finding demands.
 
-- [ ] **Step 3: Resolve Minor and Low in docs only**
+- [ ] **Step 3: Bring the docs in line with the fixes**
 
-No code edits for Minor/Low: answer each in `docs/` or this plan — normalize wording, record the decision, note the accepted trade-off. If a Minor finding cannot be answered without code, that fact promotes it to Important and it is handled in Step 2.
+Where a fix changes documented behaviour or a recorded decision, update `PRD.md`, `docs/` or this plan in the same commit.
 
 - [ ] **Step 4: Prune the line-count baseline**
 
