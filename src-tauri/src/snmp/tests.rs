@@ -1,4 +1,4 @@
-use super::{counters_from, parse_records, BlobError, SnmpCounters};
+use super::{BlobError, SnmpClient, SnmpCounters, SnmpError, counters_from, parse_records};
 
 fn hex(value: &str) -> Vec<u8> {
     (0..value.len())
@@ -14,7 +14,14 @@ fn parses_maintenance_blob() {
     let records = parse_records(&blob).unwrap();
     assert_eq!(
         records,
-        vec![(0x63, 1), (0x41, 3600), (0x11, 7753), (0x31, 7), (0x6f, 3400), (0x81, 40)]
+        vec![
+            (0x63, 1),
+            (0x41, 3600),
+            (0x11, 7753),
+            (0x31, 7),
+            (0x6f, 3400),
+            (0x81, 40)
+        ]
     );
 }
 
@@ -55,10 +62,7 @@ fn truncated_blob_is_an_error() {
 fn unsupported_record_header_is_an_error() {
     let blob = hex("a10400000008ff");
 
-    assert_eq!(
-        parse_records(&blob),
-        Err(BlobError::BadHeader { id: 0xa1 })
-    );
+    assert_eq!(parse_records(&blob), Err(BlobError::BadHeader { id: 0xa1 }));
 }
 
 #[test]
@@ -69,6 +73,12 @@ fn unknown_record_ids_are_skipped() {
 
     let counters = counters_from(&hex("ff"), &blob, &hex("ff"));
     assert_eq!(counters, SnmpCounters::default());
+}
+
+#[test]
+fn unreachable_host_is_a_transport_error() {
+    let client = SnmpClient::new("127.0.0.1:9", "public");
+    assert!(matches!(client.fetch(), Err(SnmpError::Transport(_))));
 }
 
 #[test]

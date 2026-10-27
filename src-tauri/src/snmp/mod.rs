@@ -1,9 +1,11 @@
 mod blob;
+mod client;
 
 #[cfg(test)]
 mod tests;
 
 pub use blob::{BlobError, parse_records};
+pub use client::{SnmpClient, SnmpError};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SnmpCounters {
