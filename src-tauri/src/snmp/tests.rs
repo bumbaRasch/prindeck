@@ -52,6 +52,16 @@ fn truncated_blob_is_an_error() {
 }
 
 #[test]
+fn unsupported_record_header_is_an_error() {
+    let blob = hex("a10400000008ff");
+
+    assert_eq!(
+        parse_records(&blob),
+        Err(BlobError::BadHeader { id: 0xa1 })
+    );
+}
+
+#[test]
 fn unknown_record_ids_are_skipped() {
     let blob = hex("00010400001e49ff");
 
@@ -59,4 +69,23 @@ fn unknown_record_ids_are_skipped() {
 
     let counters = counters_from(&hex("ff"), &blob, &hex("ff"));
     assert_eq!(counters, SnmpCounters::default());
+}
+
+#[test]
+fn corrupted_node_leaves_other_nodes_populated() {
+    let counter = hex("00010400001e4906010400000f6fff");
+    let next_care = hex("82010400001097ff");
+
+    let counters = counters_from(&hex("11010400"), &counter, &next_care);
+
+    assert_eq!(
+        counters,
+        SnmpCounters {
+            toner_percent: None,
+            drum_percent: None,
+            pages_total: None,
+            duplex_pages: Some(3951),
+            drum_pages_left: Some(4247),
+        }
+    );
 }
