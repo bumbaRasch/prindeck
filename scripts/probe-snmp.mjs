@@ -360,7 +360,7 @@ try {
 }
 
 if (values.json) {
-  console.log(JSON.stringify({ community: opts.community, timeoutMs: opts.timeout, retries: opts.retries, results, batch }, null, 2));
+  console.log(JSON.stringify({ community: '<community>', timeoutMs: opts.timeout, retries: opts.retries, results, batch }, null, 2));
 } else {
   for (const r of results) {
     if (r.error) {
