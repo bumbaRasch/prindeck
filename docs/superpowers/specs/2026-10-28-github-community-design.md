@@ -1,6 +1,7 @@
 # GitHub community and CI (M5) — Design
 
-- Status: draft for approval
+- Status: draft for approval (builder check done 28.10.2026: four findings,
+  two settled by the author, two resolved as maintainer calls, see §1, §2, §7)
 - Phase: M5 (release prep). The repo is private «пока»; everything here lands
   now, the gated parts activate at publication.
 - Sources: GitHub Docs via context7 (`/websites/github_en`), checked 28.10.2026 —
@@ -53,6 +54,14 @@ taxonomy below (name, color, description), deletes the leftovers
 Run **before** the forms merge: forms reference labels by exact name and
 silently skip missing ones.
 
+`javascript` (and later `rust`) are Dependabot **ecosystem labels**, not
+strays — Dependabot recreates them on every npm/cargo PR. So `dependabot.yml`
+gains an explicit `labels: ["dependencies"]` entry per ecosystem, pinning its
+PRs to the one managed label; only then can the delete list stick. Behaviour
+verified at implementation via context7; fallback if Dependabot still adds
+ecosystem labels: leave them in place and document them as unmanaged rather
+than fight a bot weekly (builder check; maintainer call).
+
 | Family | Labels |
 |---|---|
 | `type:` | `type: bug`, `type: feature` |
@@ -78,13 +87,21 @@ community profile needs them later. *(my call)*
 4. `input` OS/distribution + desktop session — required; placeholder
    «Ubuntu 26.04, GNOME Wayland (`cat /etc/os-release`, `echo $XDG_SESSION_TYPE`)».
 5. `input` printer model + firmware — required.
-6. `input` device address as configured — required; placeholder is the
-   documentation example `192.0.2.10`.
+6. `input` device address — **optional**; asks the address *kind*: IP literal /
+   hostname / mDNS name / non-standard port. A mandatory field with an example
+   placeholder can only ever collect `192.0.2.10` back, so the triage signal is
+   the addressing form, not the address (builder check; author-approved
+   28.10.2026).
 7. `textarea` probe output — required, `render: shell`: paste both
    `node scripts/escl-probe.mjs caps` and `node scripts/probe-snmp.mjs --json`.
 8. `upload` screenshots — optional.
 9. `checkboxes` — required: «I redacted secrets», «I searched existing issues
    and discussions».
+
+Prerequisite for §2.7: `scripts/probe-snmp.mjs` stops printing `community`
+in `--json` output (prints `<community>` instead) — the mandatory paste must
+not manufacture a credential leak on day one (builder check; author-approved
+28.10.2026). The redaction warning in the intro stays as defense in depth.
 
 ### 3. Feature request form (`.github/ISSUE_TEMPLATE/feature_request.yml`)
 
@@ -141,6 +158,11 @@ Official actions only (`checkout`, `setup-node`, optionally `cache` for
 `~/.cargo` — registry only, not `target`; *(my call)*). The check scripts are
 plain shell/GNU grep and run headless. Job name `checks` = the ruleset's
 required check context.
+
+Actions minutes on the private repo (builder check) are a temporary cost:
+the publication this phase prepares for removes the quota. If publication
+slips and the quota bites, the lever is `actions/cache` on `src-tauri/target`
+(official action, allowed) — decided then, not preemptively.
 
 ### 8. Ruleset on `main` (one-time `gh api` call, after the first green run)
 
