@@ -61,11 +61,11 @@
   - IPC: `get_config() -> Config` (serde-visible DTO of the same shape), `set_config(config: Config) -> Result<Config, String>` — validates, stores via the existing store write path, applies: poller interval (next tick), host → rebuild `EsclClient` + reset caps cache, scan dir → `asset_protocol_scope().allow_directory(dir, false)`.
   - Poller: interval read per tick from `ConfigHandle` (test with a tiny fake interval source).
 
-- [ ] **Step 1: Write failing tests** — missing-key failure (a valid pre-M4 config JSON without `notify`/`toner` → `ConfigError` whose message names the absent key); bounds violation (`toner_percent: 200` → `ConfigError`); per-tick interval re-read (fake handle, interval 5 s → poller's `next_delay` returns 5 s, after `set` with 300 s → 300 s); host rebuild (call the rebuild fn with another host → produced `EsclClient` base URL carries it, caps cache empty).
-- [ ] **Step 2: Run** `cargo test --workspace` — expected: FAIL (missing `notify`/`toner` keys, `ConfigHandle`, rebuild fn).
-- [ ] **Step 3: Implement** — `ConfigHandle` (RwLock), config structs + defaults, `set_config` applying in this order: validate → store write → swap in handle → live-apply (interval is read per tick, so nothing to do; host rebuild; scan-dir scope extend). Keep `caps.rs::resolve_state` as the single place that constructs `EsclClient` so the rebuild reuses it.
-- [ ] **Step 4: Run the full Gate** — expected: PASS.
-- [ ] **Step 5: Commit** — `M4: config live-apply foundation, get/set_config IPC`
+- [x] **Step 1: Write failing tests** — missing-key failure (a valid pre-M4 config JSON without `notify`/`toner` → `ConfigError` whose message names the absent key); bounds violation (`toner_percent: 200` → `ConfigError`); per-tick interval re-read (fake handle, interval 5 s → poller's `next_delay` returns 5 s, after `set` with 300 s → 300 s); host rebuild (call the rebuild fn with another host → produced `EsclClient` base URL carries it, caps cache empty).
+- [x] **Step 2: Run** `cargo test --workspace` — expected: FAIL (missing `notify`/`toner` keys, `ConfigHandle`, rebuild fn).
+- [x] **Step 3: Implement** — `ConfigHandle` (RwLock), config structs + defaults, `set_config` applying in this order: validate → store write → swap in handle → live-apply (interval is read per tick, so nothing to do; host rebuild; scan-dir scope extend). Keep `caps.rs::resolve_state` as the single place that constructs `EsclClient` so the rebuild reuses it.
+- [x] **Step 4: Run the full Gate** — expected: PASS.
+- [x] **Step 5: Commit** — `M4: config live-apply foundation, get/set_config IPC`
 
 ### Task 2: notify module — edge-triggered rules + notifications (Wave 2 ∥)
 
@@ -78,11 +78,11 @@
 - Consumes: `ConfigHandle` (Task 1: `notify.*`), `DeviceStatus` (status/mod.rs as of main).
 - Produces: in `notify/rules.rs` — `pub struct Measure { online: bool, toner: Option<u8>, drum: Option<u8> }` (glue maps `DeviceStatus`/poll failure to it), `pub struct NotifyConfig { enabled: bool, toner_percent: u8, drum_percent: u8 }` (mirrors Task 1 config); `notify::evaluate(prev: Option<&Measure>, next: &Measure, silent_streak: u32, cfg: &NotifyConfig) -> Vec<NotifyKind>` — pure, `NotifyKind { TonerLow(u8), DrumLow(u8), Silent, BackOnline }`; state kept in `notify::State` (re-arm on recovery, no hysteresis); `fn show(app: &AppHandle, kind: NotifyKind)` — `app.notification().builder().id(kind_id).title(..).body(..).show()`, stable id per kind so a re-notify replaces, permission-denied → `warn!` log, no panic; emits `alert {kind, message}` (PRD §9) to the UI. Poll hook fires only when `notify.enabled`.
 
-- [ ] **Step 1: Failing tests (pure rules)** — `Measure` snapshots: threshold crossing fires once (poll1: toner 20→14, cfg 15 → `[TonerLow]`; poll2: unchanged → `[]`); re-arm on recovery (14→16 → `[]`, then 16→14 → `[TonerLow]` again); offline→online transition fires `BackOnline`; 3 consecutive failed polls (silent streak, `next = None`-measured) → one `Silent`; `enabled=false` → always `[]`; drum 8% with cfg 10 → `[DrumLow]`.
-- [ ] **Step 2: Run** `cargo test --workspace` — expected: FAIL (module absent).
-- [ ] **Step 3: Implement** rules (pure) + poller hook + plugin registration + `show()` per the Context7-verified API; notification titles/bodies composed through `labels`-style constants (Russian copy lives in `labels.ts` for UI, backend notification strings get their own `NOTIFY_*` consts — English codes in events, Russian in the notification text).
-- [ ] **Step 4: Full Gate** — PASS.
-- [ ] **Step 5: Commit** — `M4: edge-triggered notifications with backend poller hook` (crate justification in body)
+- [x] **Step 1: Failing tests (pure rules)** — `Measure` snapshots: threshold crossing fires once (poll1: toner 20→14, cfg 15 → `[TonerLow]`; poll2: unchanged → `[]`); re-arm on recovery (14→16 → `[]`, then 16→14 → `[TonerLow]` again); offline→online transition fires `BackOnline`; 3 consecutive failed polls (silent streak, `next = None`-measured) → one `Silent`; `enabled=false` → always `[]`; drum 8% with cfg 10 → `[DrumLow]`.
+- [x] **Step 2: Run** `cargo test --workspace` — expected: FAIL (module absent).
+- [x] **Step 3: Implement** rules (pure) + poller hook + plugin registration + `show()` per the Context7-verified API; notification titles/bodies composed through `labels`-style constants (Russian copy lives in `labels.ts` for UI, backend notification strings get their own `NOTIFY_*` consts — English codes in events, Russian in the notification text).
+- [x] **Step 4: Full Gate** — PASS.
+- [x] **Step 5: Commit** — `M4: edge-triggered notifications with backend poller hook` (crate justification in body)
 
 ### Task 3: SNMP fourth varbind + jam count + status fields (Wave 2 ∥)
 
@@ -94,11 +94,11 @@
 - Consumes: existing batched `get_many` + blob record parser; `docs/oids-l2710dw.md` §`5.5.21` (`#a1` = jam count).
 - Produces: `DeviceStatus` gains `jam_count: Option<u32>`; the batched GET carries 4 varbinds in one PDU; missing/absent blob → `None` (never an error).
 
-- [ ] **Step 1: Failing tests** — fixture with a `…5.5.21` OctetString `#a1 <u32 BE>` record parses to `jam_count = Some(n)`; response without that node → `jam_count = None`; unknown `#` ids in that blob are skipped with a log (existing convention).
-- [ ] **Step 2: Run** `cargo test --workspace` — expected: FAIL.
-- [ ] **Step 3: Implement** — extend the varbind list and the mapping; arithmetic for «drum left» stays in the UI task (Task 5) per `docs/oids-l2710dw.md` semantics — backend reports raw verified numbers only.
-- [ ] **Step 4: Full Gate** — PASS.
-- [ ] **Step 5: Commit** — `M4: jam count via fourth varbind in the batched GET`
+- [x] **Step 1: Failing tests** — fixture with a `…5.5.21` OctetString `#a1 <u32 BE>` record parses to `jam_count = Some(n)`; response without that node → `jam_count = None`; unknown `#` ids in that blob are skipped with a log (existing convention).
+- [x] **Step 2: Run** `cargo test --workspace` — expected: FAIL.
+- [x] **Step 3: Implement** — extend the varbind list and the mapping; arithmetic for «drum left» stays in the UI task (Task 5) per `docs/oids-l2710dw.md` semantics — backend reports raw verified numbers only.
+- [x] **Step 4: Full Gate** — PASS.
+- [x] **Step 5: Commit** — `M4: jam count via fourth varbind in the batched GET`
 
 ### Task 4: Tray states + menu (Wave 2 ∥)
 
@@ -111,11 +111,11 @@
 - Consumes: existing tray setup (M1 menu), `status` event payload (offline/error already known there).
 - Produces: `AppState.activity: Arc<AtomicU8>` (0 idle / 1 scanning / 2 printing); `tray::update(app, TrayInput { state, activity })` mapping to icon states idle (neutral) / working (accent, when `activity != 0`) / error (red) / offline (dimmed); menu «Показать окно», «Скан» (show+focus window, navigate to Scan screen via existing event), «Открыть панель» (opener → `http://<host>/general/status.html`), «Выход». Icons: 4 PNG assets generated from the existing icon source (script step or committed assets).
 
-- [ ] **Step 1: Failing test** — mapping table: (offline, any) → OfflineIcon; (error, idle) → ErrorIcon; (ok, scanning) → WorkingIcon; (ok, idle) → IdleIcon.
-- [ ] **Step 2: Run** — FAIL.
-- [ ] **Step 3: Implement** — `update()` calls `TrayIcon::set_icon` (runtime, Context7-verified) and keeps the menu set once (Linux caveat); wire flag set/clear in scan job runner and print paths; menu handlers reuse the opener command's logic for the panel link.
-- [ ] **Step 4: Full Gate** — PASS.
-- [ ] **Step 5: Commit** — `M4: tray status icon and full menu`
+- [x] **Step 1: Failing test** — mapping table: (offline, any) → OfflineIcon; (error, idle) → ErrorIcon; (ok, scanning) → WorkingIcon; (ok, idle) → IdleIcon.
+- [x] **Step 2: Run** — FAIL.
+- [x] **Step 3: Implement** — `update()` calls `TrayIcon::set_icon` (runtime, Context7-verified) and keeps the menu set once (Linux caveat); wire flag set/clear in scan job runner and print paths; menu handlers reuse the opener command's logic for the panel link.
+- [x] **Step 4: Full Gate** — PASS.
+- [x] **Step 5: Commit** — `M4: tray status icon and full menu`
 
 ### Task 5: History chart + R5/R6 on «Обзор» (Wave 3 ∥)
 
@@ -128,11 +128,11 @@
 - Consumes: M2.5 history schema (post-merge `history/mod.rs` — read the actual columns); Task 3 `DeviceStatus.jam_count`; Task 1 `Config.toner.yield_pages`.
 - Produces: IPC `get_history(days: u32) -> [Snapshot]` (matches PRD §9); `overview_chart.ts: renderChart(el, points: ChartPoint[], max: number)` pure-ish SVG builder; downsample `toPoints(rows, cap = 90)`.
 
-- [ ] **Step 1: Failing tests** — Rust: `read_days` returns rows newest-last for a seeded in-memory DB; TS: `toPoints` caps 200 rows → 90, keeps first/last; 0/1 rows → empty state flag.
-- [ ] **Step 2: Run** — FAIL.
-- [ ] **Step 3: Implement** — `get_history` command (default 90 days); «Обзор» renders an SVG polyline chart (toner-% line, page-counter line, axis-less, current-value dots) + empty state «данных пока нет — копим» at <2 rows; R5 lines from `DeviceStatus` (jam text only when `jam_count` present; drum text per `docs/oids-l2710dw.md` semantics); R6 estimate next to toner % only when `yield_pages` set, otherwise the hint «укажите ресурс картриджа в настройках» linking to «Настройки»; R7 firmware link row → `/admin/firmwareupdate.html`.
-- [ ] **Step 4: Full Gate** — PASS.
-- [ ] **Step 5: Commit** — `M4: history chart, human status texts and supplies estimate on overview`
+- [x] **Step 1: Failing tests** — Rust: `read_days` returns rows newest-last for a seeded in-memory DB; TS: `toPoints` caps 200 rows → 90, keeps first/last; 0/1 rows → empty state flag.
+- [x] **Step 2: Run** — FAIL.
+- [x] **Step 3: Implement** — `get_history` command (default 90 days); «Обзор» renders an SVG polyline chart (toner-% line, page-counter line, axis-less, current-value dots) + empty state «данных пока нет — копим» at <2 rows; R5 lines from `DeviceStatus` (jam text only when `jam_count` present; drum text per `docs/oids-l2710dw.md` semantics); R6 estimate next to toner % only when `yield_pages` set, otherwise the hint «укажите ресурс картриджа в настройках» linking to «Настройки»; R7 firmware link row → `/admin/firmwareupdate.html`.
+- [x] **Step 4: Full Gate** — PASS.
+- [x] **Step 5: Commit** — `M4: history chart, human status texts and supplies estimate on overview`
 
 ### Task 6: «Настройки» screen + EWS deep links (Wave 3 ∥)
 
@@ -145,11 +145,11 @@
 - Consumes: Task 1 `get_config`/`set_config` (exact DTO shape), Task 5 empty-estimate hint target.
 - Produces: nav destination «Настройки»; settings form (host, pollSeconds, notify enabled + toner/drum thresholds, scan folder, cartridge model + yield, notification test button); R1 link group (verified URLs from `docs/ews-l2710dw.md`): status, maintenance info, sleep, auto power-off, replace toner, date&time, SNTP, firmware update; each opens `http://<host><path>` via the opener plugin.
 
-- [ ] **Step 1: Failing test** — form→DTO mapping: valid input produces `Config` DTO within bounds; out-of-bounds percent is blocked before `set_config` and shows the inline error (assert on the mapping/validation function).
-- [ ] **Step 2: Run** — FAIL.
-- [ ] **Step 3: Implement** — load on open via `get_config`, save via `set_config` (success → status line «сохранено, применено»), inline field errors from the `Err` string; deep-link group as a link list with a one-line hint that authenticated pages open the panel's login first (verified behavior, `docs/ews-l2710dw.md`); notification test button calls a tiny `test_notification` command (backend `show()` with a fixed id) so the user can verify desktop notifications from settings.
-- [ ] **Step 4: Full Gate** — PASS.
-- [ ] **Step 5: Commit** — `M4: settings destination with live-applied config and EWS links`
+- [x] **Step 1: Failing test** — form→DTO mapping: valid input produces `Config` DTO within bounds; out-of-bounds percent is blocked before `set_config` and shows the inline error (assert on the mapping/validation function).
+- [x] **Step 2: Run** — FAIL.
+- [x] **Step 3: Implement** — load on open via `get_config`, save via `set_config` (success → status line «сохранено, применено»), inline field errors from the `Err` string; deep-link group as a link list with a one-line hint that authenticated pages open the panel's login first (verified behavior, `docs/ews-l2710dw.md`); notification test button calls a tiny `test_notification` command (backend `show()` with a fixed id) so the user can verify desktop notifications from settings.
+- [x] **Step 4: Full Gate** — PASS.
+- [x] **Step 5: Commit** — `M4: settings destination with live-applied config and EWS links`
 
 ### Task 7: Live acceptance + docs (user-gated, after Waves 1–3 merge)
 
@@ -159,6 +159,6 @@
 
 **Interfaces:** consumes everything above, on merged `main`.
 
-- [ ] **Step 1 (user session):** live checklist — settings change applies without restart (interval visibly changes poll cadence); notification fires at a temporarily high threshold (real toner ≈40 % → set 45 %, then restore 15 %); one notification per stuck state; tray icon reflects offline (unplug LAN cable / power off → dimmed, back → idle); tray menu «Скан»/«Открыть панель»/«Выход»; chart fills as history accrues (≥2 polls); jam/drum/estimate lines render from live values; EWS links open the right pages (public ones directly, authenticated ones via the panel login); notification test button works.
-- [ ] **Step 2:** visual check pass (visual-check subagent), both themes, 640×480 and maximized.
-- [ ] **Step 3:** docs updates + commit `M4: live acceptance and docs`.
+- [x] **Step 1 (user session, 28.10.2026):** live checklist — settings change applies without restart (60 → 120 s confirmed); notification fires at a temporarily high threshold (real toner ≈40 % → set 45 %, then restore 15 %); one notification per stuck state; tray icon reflects offline (the device is on Wi-Fi, so offline was simulated with the unroutable 192.0.2.10 → dimmed, back → idle); tray menu «Скан»/«Открыть панель»/«Выход»; chart fills as history accrues (≥2 polls); jam total/drum/estimate lines render from live values (jam total wording corrected during the session — `#a1` is a lifetime counter); EWS links open the right pages (public ones directly, authenticated ones via the panel login); notification test button works.
+- [x] **Step 2 (waived by the user, 28.10.2026):** the formal visual check (visual-check subagent, both themes, 640×480 and maximized) was not run — the user closed the session after the functional checks; carried into the PRD §14 open items for M5.
+- [x] **Step 3:** docs updates + commit `M4: live acceptance and docs`.

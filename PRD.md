@@ -114,8 +114,12 @@ the `lp`/`scanimage` CLI. There is no single window: status + toner + scan + pri
 ### F4. Monitoring and history
 
 - Background SNMP polling (toner, status) with a configurable interval (default 5 min).
-- System notifications (tauri-plugin-notification) on: toner < 15 %, drum < 10 %,
-  device error, offline → online transition (no more than 1 notification per event).
+- System notifications (tauri-plugin-notification), edge-triggered: toner below
+  its threshold, drum below its threshold, three failed polls in a row, and
+  recovery — but only after the outage was announced (one notification per
+  transition, re-armed by recovery; a shorter blip recovers quietly).
+  Device-error notifications wait for a distinguishable error state: the tray
+  error icon is wired, but no status signal feeds it yet.
 - Tray icon: status color + menu ("Show window", "Scan", "Open panel",
   "Quit"); on Linux the tray icon requires a menu to be set (a Tauri peculiarity).
 - History of toner levels/page counter: local SQLite (90-day chart).
@@ -134,9 +138,9 @@ the SNMP fields in `docs/oids-l2710dw.md`.
   open the panel's login form first.
 - **R2–R4 — scan-result editor** (rotate, delete/insert a page, reorder, crop),
   continuous ADF passes, blank-page skip: deferred to v1.x, fully client-side.
-- **R5 — human-readable state** built from the already parsed SNMP fields: jam
-  count → "check the paper path", drum pages against the 12 000-page life →
-  "drum end soon".
+- **R5 — human-readable state** built from the already parsed SNMP fields: the
+  jam **total** (`#a1`, a lifetime counter — shown as history, never as an
+  action prompt) and drum remaining pages (`#82` of `brInfoNextCare`).
 - **R6 — toner remaining-pages estimate** next to the %: the cartridge yield
   entered in settings × current %. The installed cartridge model/yield is not
   read from the device — do not hardcode it.
@@ -386,7 +390,7 @@ Commands (`#[tauri::command]`):
 
 | invoke | Input | Output | Purpose |
 |---|---|---|---|
-| `get_status` | — | `DeviceStatus` | cached snapshot from the status poller (SNMP only: toner, drum, counters, `polledAt`) |
+| `get_status` | — | `DeviceStatus` | cached snapshot from the status poller (SNMP: toner, drum, jam total, counters, `polledAt`) |
 | `refresh_status` | — | `DeviceStatus` | forced SNMP poll now; error string when the device is silent |
 | `get_capabilities` | — | `ScanCaps` | normalized scanner capabilities |
 | `start_scan` | `ScanParams` | `jobId` | POST ScanJobs, background task |
@@ -397,7 +401,11 @@ Commands (`#[tauri::command]`):
 | `get_queue` | — | `[CupsJob]` | `lpstat -W not-completed` for the configured queue (M2.5) |
 | `cancel_print` | `cupsJobId` | `ok` | `cancel`, guarded to the configured queue (M2.5) |
 | `get_history` | `days` | `[Snapshot]` | from SQLite (M4; the recording itself is internal since M2.5 — no IPC yet) |
+| `get_config` | — | `Config` | the current configuration (M4) |
+| `set_config` | `Config` | `Config` | validate → save → live apply: client rebuild on a host change, scan-dir asset scope, notify re-arm; an error names the offending key (M4) |
+| `test_notification` | — | `ok` | shows a fixed test notification so the user can verify desktop notifications (M4) |
 | `open_printer_panel` | — | `ok` | web panel via opener |
+| `open_status_page`, `open_firmware_page` | — | `ok` | M4 deep links: public status page and the firmware page (M4) |
 
 Shipped in M2.5: `print_file`, `get_queue`, `cancel_print`; `scan-progress`
 gained `pages` and `scan-done` now carries `{jobId, files, partial, warning}`.
@@ -405,8 +413,8 @@ M2 shipped `get_status`, `refresh_status`, `open_printer_panel` and the
 `status`, `scan-progress`, `scan-done`, `scan-error` events; M1 —
 `get_capabilities`, `start_scan`, `cancel_scan`, `get_startup_error`,
 `open_scan_folder`. History is recorded silently inside the status poller
-(SQLite at `~/.local/share/prindeck/history.db`) — there is no history IPC
-yet; `get_history` is M4.
+(SQLite at `~/.local/share/prindeck/history.db`) and read back by
+`get_history` (M4).
 
 Events (`emit` → `listen` in the UI):
 
@@ -416,7 +424,8 @@ Events (`emit` → `listen` in the UI):
 | `scan-progress` | `{jobId, phase, pages}` | client stages `created → scanning → done`; `pages` counts received documents (ADF, M2.5); polling `ScannerStatus` is not needed — `Completed` lags (§7.1) |
 | `scan-done` | `{jobId, files, partial, warning}` | escl scan task; `partial: true` (+ `warning` on failure) when a canceled/failed job kept its received pages (M2.5); a cancel with zero pages terminates as `scan-progress {phase: "canceled"}` without `scan-error` |
 | `scan-error` | `{jobId, kind, message}` | scan task failure (user-worded, no raw errors; classified `kind` since M2) |
-| `alert` | `{kind, message}` | F4 thresholds (M4) |
+| `alert` | `{kind, message}` | F4 thresholds (M4): `toner-low` / `drum-low` / `silent` / `back-online` with a Russian message; the desktop notification itself is shown by the backend, the event is for in-app banners (no listener yet) |
+| `navigate` | `"scan"` (bare string) | tray «Скан»: shows and focuses the window, then switches the screen (M4) |
 
 ## 10. Stack — APPROVED: Tauri 2
 
@@ -429,7 +438,8 @@ rejected; the record of the comparison is preserved in the PRD's git history).
   `single-instance`, `opener`, `dialog`; tray — from the core (feature `tray-icon`,
   on Linux the menu is mandatory, tray events are not emitted).
   Wired up: `opener` and `single-instance` (M1), `dialog` (M2.5 — the Print
-  screen file picker); `notification` and `autostart` — M4.
+  screen file picker), `notification` (M4 — desktop notifications); `autostart`
+  is still not wired (deferred past v1).
 - Rust crates (fixed list):
   - `reqwest` 0.13 — eSCL HTTP client (no TLS: the device is over HTTP);
   - `quick-xml` + `serde` — parsing capabilities/status/ScanSettings;
@@ -474,7 +484,7 @@ Crate policy: a new crate — only with a justification in the commit descriptio
 | M2 Shell and overview ✅ 27.10.2026 | navigation shell (sidebar + icon rail), `snmp/` (batched GET, blob parsing), `status/` (cache, 5-min polling, `status` event), «Обзор» screen; the print screen stays in M3 | toner/status matches the web panel (live check 27.10.2026, `docs/oids-l2710dw.md` §6) |
 | M2.5 History, print, ADF ✅ 27.10.2026 | silent SQLite history on every successful poll (`history/`, `~/.local/share/prindeck/history.db`); `print/` + the «Печать» screen (queue-first: copies 1–99, duplex, active CUPS queue with cancel, `LC_ALL=C`); ADF multi-sheet per the spike verdict — one whole-stack PDF / per-page JPEG (`-pN`), partial keep on cancel, truncated-document guard (`%%EOF`/`FF D9`), stack-scaled fetch timeout, A4 region 3507 | the live acceptance checklist (§14): 3-sheet PDF → one file (`Pages: 3`) ✅, 3-sheet JPEG → three `-pN.jpg` ✅, JPEG cancel mid-stack → partial keep ✅, PDF cancel in-flight → «отменено», no file ✅ (log 27.10.2026 20:18), history DB accumulates and survives a restart ✅; remaining §14 items: power-cycle probe, formal visual check, duplex print confirmation |
 | M3 Printing — delivered in M2.5 | moved into M2.5 (`print/`, «Печать» screen, duplex via `sides=`); the leftover F3 extras — quality/resolution/toner saving from the queue's PPD — are cut from v1 and deferred to v2 | a duplex print from the UI flips like a book (pending live check, §14) |
-| M4 Monitoring | `get_history` IPC + history chart, notifications, tray menu (the recording itself shipped in M2.5) | notification when toner < 15 % |
+| M4 Monitoring ✅ 28.10.2026 | `get_history` IPC + SVG history chart on «Обзор», edge-triggered desktop notifications (toner/drum thresholds, silent streak, recovery), tray status icon and full menu, «Настройки» screen with live-applied config, jam total and toner pages estimate, verified EWS deep links | the §14 live session 28.10.2026 on the real device: threshold change → exactly one notification, no repeat while stuck; poll interval 60 → 120 s without restart; unroutable host → three failed polls → one «не отвечает» → back → «снова доступен»; every tray menu item and all eight panel links |
 | M5 Release | icon, bundler (deb/rpm/AppImage), README+license, GitHub | repository published, install from the artifact |
 | v2 | mDNS discovery, OCR add-on, «Scan to PC» from the device body, other distributions | — |
 
@@ -546,13 +556,24 @@ open-protocol path is to catch the hardware button press by polling eSCL
 - Live checklist `LIVE=1` (manually against the real device): GET capabilities/
   status, POST scan-job at 300 dpi Platen (150 dpi is not supported), `lp` test
   page, tray menu, notification at low toner.
-- M2.5 live acceptance (**pending**): 3-sheet ADF PDF → one file, `pdfinfo`
-  reports `Pages: 3` and page size ≈ 602.64 × 830.16 pt (the M0 reference),
-  opens in GNOME Papers and Firefox;
-  3-sheet JPEG → three `-pN.jpg` with previews; cancel on sheet 2 →
-  `…-partial.pdf`, device `Idle`, no temp files; the history DB accumulates rows
-  over one poll interval and survives an app restart; a duplex print from the UI
-  flips like a book.
+- M2.5 live acceptance (27.10.2026): 3-sheet ADF PDF → one file, `Pages: 3`,
+  page size ≈ 602.64 × 830.16 pt, opens in GNOME Papers ✅; 3-sheet JPEG →
+  three `-pN.jpg` with previews ✅; cancel on sheet 2 → `…-partial.pdf`,
+  device `Idle`, no temp files ✅; history DB accumulates rows and survives a
+  restart ✅. Still open from that phase: a duplex print from the UI flips like
+  a book, the power-cycle probe, the formal visual check.
+- M4 live acceptance (28.10.2026, real device over Wi-Fi): settings apply
+  without a restart (poll 60 → 120 s confirmed by the history timestamps);
+  toner threshold 45 % against a real 40 % → exactly one notification, silence
+  while the state is stuck, restoring 15 % is silent; three failed polls (host
+  switched to the unroutable 192.0.2.10) → one «Принтер не отвечает», back →
+  «Принтер снова доступен»; tray menu «Показать окно / Скан / Открыть панель /
+  Выход» — «Скан» switches the screen; all eight EWS links open the right pages
+  (SNTP after the panel login); the notification test button; the toner pages
+  estimate (yield 1000 → «≈ 400 стр.» at 40 %) and its settings hint.
+  Not covered in that session: the formal visual check of both themes at
+  640×480 and maximized (waived by the user, kept for M5) and the tray
+  «working» icon (needs a scan or print).
 - Acceptance v1: from the app window in ≤ 3 clicks get a PDF from a scan; toner in the UI
   matches the web panel ±1 %; after the printer is disconnected the UI stays alive
   (offline badge), after it is switched on — recovers by itself; closed window → tray,

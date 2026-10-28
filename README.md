@@ -12,8 +12,8 @@ step-by-step plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
 
 **M0 — protocol spike: done.** **M1 — Tauri shell and eSCL scanning: done.**
 **M2 — navigation shell and device overview: done.** **M2.5 — print, history
-recording and ADF multi-sheet: done.** **M4 — monitoring: done** (the final
-live device checks are pending, tracked in the PRD §14).
+recording and ADF multi-sheet: done.** **M4 — monitoring: done** (live
+acceptance 28.10.2026, PRD §14).
 
 - `ui/` + `src-tauri/` — Tauri 2 app (Rust + vanilla TypeScript): navigation
   shell (left sidebar with four destinations — Скан, Обзор, Печать and
@@ -35,11 +35,14 @@ live device checks are pending, tracked in the PRD §14).
 - History recording (M2.5) — every successful status poll writes a snapshot
   (toner, drum, counters) to `~/.local/share/prindeck/history.db` (SQLite).
   Recording failures are logged and never interrupt polling. The «Обзор»
-  screen charts toner and page counters for the last 90 days, notifications
-  fire when supplies drop below the configured thresholds, and the tray menu
-  opens the screens and the device panel. «Настройки» edits the device
-  address, scan folder, CUPS queue, SNMP community and poll interval with
-  live apply.
+  screen charts toner and page counters for the last 90 days, shows the
+  lifetime jam total and the drum pages left, estimates toner pages from the
+  cartridge yield entered in settings, and notifications fire when supplies
+  drop below the configured thresholds (once per transition, and a recovery
+  only after an announced outage). The tray menu opens the screens and the
+  device panel; «Настройки» edits the device address, scan folder, CUPS queue,
+  SNMP community, poll interval and notification thresholds with live apply,
+  and groups the verified web-panel links.
 - `scripts/escl-probe.mjs` — eSCL scan-job lifecycle (`fetch`-only, no deps).
 - `scripts/probe-snmp.mjs` — SNMPv2c GET with a hand-written BER codec
   (`node:dgram` only), including the batched three-varbind GET the app uses.
