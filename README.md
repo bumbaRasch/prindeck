@@ -106,6 +106,12 @@ node scripts/escl-probe.mjs scan --source platen --dpi 300 --mode Grayscale8 \
 node scripts/probe-snmp.mjs --json
 ```
 
+## Community
+
+- Want to contribute? Start with [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- Security problems go privately through [`SECURITY.md`](SECURITY.md).
+- Questions and ideas: [Discussions](https://github.com/bumbaRasch/prindeck/discussions).
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
