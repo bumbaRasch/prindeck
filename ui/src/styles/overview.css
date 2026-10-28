@@ -160,13 +160,14 @@
   font-size: 13px;
 }
 
-.link-button {
+.metric-hint {
   align-self: flex-start;
   padding: 0;
   border: none;
   background: none;
   color: var(--primary);
   font-size: 13px;
+  text-align: left;
   text-decoration: underline;
   cursor: pointer;
 }

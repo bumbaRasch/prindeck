@@ -28,7 +28,7 @@ const TEMPLATE = `
         </div>
         <p class="metric-note" id="overview-toner-estimate" hidden></p>
         <div class="bar" id="overview-toner-bar" hidden><div class="bar-fill" id="overview-toner-fill"></div></div>
-        <button class="link-button" id="overview-toner-hint" type="button" hidden>${TEXT.tonerYieldHint}</button>
+        <button class="metric-hint" id="overview-toner-hint" type="button" hidden>${TEXT.tonerYieldHint}</button>
       </div>
       <div class="metric">
         <div class="metric-head">
