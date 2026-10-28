@@ -27,9 +27,8 @@ const TEMPLATE = `
           <span class="metric-value" id="overview-toner">${TEXT.unreported}</span>
         </div>
         <p class="metric-note" id="overview-toner-estimate" hidden></p>
-        <button class="link-button" id="overview-toner-hint" type="button" hidden>${TEXT.tonerYieldHint}</button>
-        <p class="metric-note" id="overview-toner-hint-plain" hidden>${TEXT.tonerYieldHint}</p>
         <div class="bar" id="overview-toner-bar" hidden><div class="bar-fill" id="overview-toner-fill"></div></div>
+        <button class="link-button" id="overview-toner-hint" type="button" hidden>${TEXT.tonerYieldHint}</button>
       </div>
       <div class="metric">
         <div class="metric-head">
@@ -61,7 +60,6 @@ const els = {
   tonerBar: mustQuery<HTMLElement>("#overview-toner-bar"),
   tonerEstimate: mustQuery<HTMLParagraphElement>("#overview-toner-estimate"),
   tonerHint: mustQuery<HTMLButtonElement>("#overview-toner-hint"),
-  tonerHintPlain: mustQuery<HTMLParagraphElement>("#overview-toner-hint-plain"),
   drum: mustQuery<HTMLElement>("#overview-drum"),
   drumFill: mustQuery<HTMLElement>("#overview-drum-fill"),
   drumBar: mustQuery<HTMLElement>("#overview-drum-bar"),
@@ -128,11 +126,7 @@ function renderTonerNote(tonerPercent: number | null): void {
     els.tonerEstimate.textContent = estimate;
   }
 
-  const needsHint = yieldPages === null;
-  const settingsAvailable =
-    document.querySelector('[data-screen="settings"]') !== null;
-  els.tonerHint.hidden = !(needsHint && settingsAvailable);
-  els.tonerHintPlain.hidden = !(needsHint && !settingsAvailable);
+  els.tonerHint.hidden = yieldPages !== null;
 }
 
 export function renderOverviewSupplies(state: AppState): void {
