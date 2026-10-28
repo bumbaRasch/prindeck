@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest an idea for prindeck.
+labels: ["type: feature", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Describe the problem first, then the solution you have in mind.
+
+        Some areas are deliberately out of scope for v1: OCR, cloud destinations, Windows/macOS builds and multi-printer support — see [PRD §2](https://github.com/bumbaRasch/prindeck/blob/main/PRD.md#non-goals-v1). Requests in that list belong in [Discussions](https://github.com/bumbaRasch/prindeck/discussions), not in issues.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem or need
+      description: What are you trying to do, and what stops you today?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What should prindeck do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: How do you manage today — other tools, manual steps, configuration?
+    validations:
+      required: false
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions
+          required: true
+    validations:
+      required: true
