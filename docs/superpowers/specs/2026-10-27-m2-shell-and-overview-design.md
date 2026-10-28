@@ -279,7 +279,7 @@ produce the single chip in §7.5.
 
 ```json
 {
-  "device": { "host": "192.168.187.36" },
+  "device": { "host": "192.0.2.10" },
   "scanDir": "/home/user/Documents/scans",
   "snmp": { "community": "public" },
   "pollSeconds": 300

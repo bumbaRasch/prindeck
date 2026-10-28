@@ -2,13 +2,13 @@
 
 Control panel for the Brother MFC-L2710DW on Linux — an equivalent of Brother iPrint&Scan (Windows/Android/iOS), which does not officially exist for Linux. Tauri 2: native window, tray, autostart.
 
-- Status: M0 ✅ 26.10.2026 · M1 ✅ · M2 ✅ 27.10.2026 · M2.5 ✅ 27.10.2026
-  (live device acceptance pending, §14)
+- Status: M0 ✅ 26.10.2026 · M1 ✅ · M2 ✅ 27.10.2026 · M2.5 ✅ 27.10.2026 ·
+  M4 ✅ 27.10.2026 (live device acceptance pending, §14)
 - Author: bumbarasch
-- Date: 2026-10-26 (revision 27.10.2026)
+- Date: 2026-10-26 (revision 28.10.2026)
 - Currency: device facts — M0 spike 26.10.2026; stack versions
   re-checked 27.10.2026 (§0)
-- Repository: `~/Documents/projects/prindeck/`
+- Repository: https://github.com/bumbaRasch/prindeck
 - Name: **prindeck** — print + deck; no vendor TM; free on GitHub/crates/npm
   (checked via API 26.10.2026: GitHub 0 repos, crates.io 404, npm 404)
 
@@ -58,21 +58,19 @@ the `lp`/`scanimage` CLI. There is no single window: status + toner + scan + pri
 - We do not do OCR/document search (v2, tesseract as an optional add-on).
 - Fax — no (the device has the module, but it is not needed).
 - Windows/macOS builds — no (Tauri allows it, but we do not test it).
-- From the iPrint&Scan reference (27.10.2026, reverse of the Windows installer;
-  local notes in `docs/ref/`, not published): cloud destinations
-  (Drive/OneDrive/Dropbox/SharePoint/Evernote), in-app Office conversion and OCR
-  (the vendor ships commercial Kofax OmniPage + Aspose; our OCR stays a v2
-  tesseract add-on), the USB bridge (prindeck is network-only), the vendor
-  account/marketing layer.
+- Cloud destinations (Drive/OneDrive/Dropbox/SharePoint/Evernote), in-app Office
+  conversion and OCR (OCR stays a v2 tesseract add-on), USB-only scanning
+  (prindeck is network-only), an account/marketing layer, and scan-editor
+  extras (page reorder/crop, continuous ADF, blank-page skip) — out of v1.
 
 ## 3. Device and environment (fixed facts)
 
 | Fact | Value |
 |---|---|
 | Device | Brother MFC-L2710DW (mono laser, ADF 50 sheets simplex, auto-duplex printing) |
-| IP | `192.168.187.36` |
-| Web panel | `http://192.168.187.36/` (responds, title «Brother MFC-L2710DW series») |
-| eSCL endpoint | `http://192.168.187.36:80/eSCL/` (confirmed by `airscan-discover`, WSD also present) |
+| IP | `192.0.2.10` (example address, RFC 5737 — use the printer's own address) |
+| Web panel | `http://192.0.2.10/` (responds, title «Brother MFC-L2710DW series») |
+| eSCL endpoint | `http://192.0.2.10:80/eSCL/` (confirmed by `airscan-discover`, WSD also present) |
 | CUPS queue | `Brother_MFC_L2710DW_series` (driver brlaser, PPD installed) |
 | SANE | `sane-airscan` installed, sees the device |
 | OS | Ubuntu 26.04.1 LTS (checked at M0; the PRD previously said «Fedora» erroneously); WebKitGTK runtime 2.52.6 and dev headers 2.52.6, Rust 1.99.1 — installed 27.10.2026, see `docs/m1-prerequisites.md` |
@@ -123,23 +121,29 @@ the `lp`/`scanimage` CLI. There is no single window: status + toner + scan + pri
 - History of toner levels/page counter: local SQLite (90-day chart).
 - "State report": once a week/month take a snapshot to a file (optional, off).
 
-### F5. From the iPrint&Scan reference (27.10.2026)
+### F5. Device web panel and monitoring (verified live)
 
-A portable subset distilled from the reverse of the Windows iPrint&Scan
-17.0.20.2 installer (working notes — `docs/ref/`, local only, not published).
-Candidates R1–R7 plus a deferred R9; milestones are preliminary. R1/R7 are
-gated by a live check of the EWS paths on our device (§13.10).
+Only behaviour confirmed against the printer itself on 27.10.2026 is listed
+here; the URL set and the auth model are recorded in `docs/ews-l2710dw.md`,
+the SNMP fields in `docs/oids-l2710dw.md`.
 
-| # | Feature | Home | Notes / milestone |
-|---|---|---|---|
-| R1 | Deep links into the device web panel: public pages (status, maintenance info, sleep, auto power-off, replace toner) + authenticated pages (date/time, SNTP, firmware update, network status, wired/wireless TCP-IP details) | «Обзор»/«Настройки» | M3, with the settings screen; every link verified live 27.10.2026 (`docs/ews-l2710dw.md`); authenticated links open the panel's login form first |
-| R2 | Scan result preview with page operations before saving: rotate, delete/insert a page, reorder, crop | «Скан» | M3, after the ADF merge; fully client-side |
-| R3 | Continuous ADF: after a pass ask "add pages?" and append to the same PDF | «Скан» | M3; on eSCL — a new ScanJobs POST + merge, the device is free between passes |
-| R4 | Blank-page skip with a sensitivity setting (share of near-white pixels) | «Скан» | M3; applies to ADF passes |
-| R5 | Human-readable state from the already parsed blobs: jams → "check the paper path", drum pages vs 12 000 → "drum end soon" | «Обзор» | M4, with notifications; message wording referenced from the vendor status dictionary (docs/ref) |
-| R6 | Toner remaining-pages estimate next to the %: cartridge ISO yield minus the page counter | «Обзор» | M4, needs history (SQLite); the installed cartridge model/yield must be verified against the web panel first — do not hardcode |
-| R7 | Firmware: a menu item/notification opening the device firmware page — no flashing from prindeck | «Обзор»/tray | M4; `/admin/firmwareupdate.html` verified live behind the login (`docs/ews-l2710dw.md`); "outdated" detection only if a trustworthy version source appears |
-| R9 | PC Copy: scan → print N copies via CUPS | «Скан» | deferred — both halves exist after M3; revisit at v2 planning |
+- **R1 — deep links into the device web panel**: public pages (status,
+  maintenance information, sleep, auto power-off, replace toner) and pages
+  behind the panel login (date/time, SNTP, firmware update, network status,
+  wired/wireless TCP/IP details). «Настройки» groups them; authenticated links
+  open the panel's login form first.
+- **R2–R4 — scan-result editor** (rotate, delete/insert a page, reorder, crop),
+  continuous ADF passes, blank-page skip: deferred to v1.x, fully client-side.
+- **R5 — human-readable state** built from the already parsed SNMP fields: jam
+  count → "check the paper path", drum pages against the 12 000-page life →
+  "drum end soon".
+- **R6 — toner remaining-pages estimate** next to the %: the cartridge yield
+  entered in settings × current %. The installed cartridge model/yield is not
+  read from the device — do not hardcode it.
+- **R7 — firmware**: a menu item/notification opens the device firmware page —
+  no flashing from prindeck, no "outdated" detection (there is no trustworthy
+  version source).
+- **R9 — PC Copy** (scan → print via CUPS): deferred to v2.
 
 ## 5. Non-functional requirements
 
@@ -157,7 +161,7 @@ gated by a live check of the EWS paths on our device (§13.10).
 6. **Resilience to firmware changes**: everything we parse (XML capabilities, SNMP)
    must not fail on unfamiliar fields — unknown → ignore + log (tracing).
 7. **GitHub hygiene**: no keys/private data in the repo; README disclaimer
-   "not affiliated with Brother Industries"; license (MIT or Apache-2.0 — §13).
+   "not affiliated with Brother Industries"; license (MIT — §13).
 
 ## 6. Architecture
 
@@ -225,7 +229,7 @@ poll. Data flows in one direction — "network → DTO mapping → domain → IP
 ### 7.1 Scanning — eSCL (M0 facts 26.10.2026; ADF — M2.5 spike 27.10.2026)
 
 RESTful HTTP+XML (originated at HP, published by Mopria; reference — `sane-airscan`).
-Base path: `http://192.168.187.36/eSCL/`. Everything below was taken from the live device;
+Base path: `http://192.0.2.10/eSCL/` (example address). Everything below was taken from the live device;
 the full log — `docs/escl-l2710dw.md`.
 
 Observed flow:
@@ -309,7 +313,7 @@ M0 facts: `prtMarkerSuppliesLevel.1.1 = -3` ("some remaining"),
 `hrDeviceStatus = 2` was also observed on a sleeping device — the M2 mapping needs clarification.
 
 **Brother enterprise OIDs** (**mandatory** source — Printer-MIB does not give %;
-the MFC-L27xx series has been reverse-engineered):
+the MFC-L27xx series is covered by community OID notes):
 
 | Node | OID | Contents |
 |---|---|---|
@@ -452,7 +456,7 @@ Crate policy: a new crate — only with a justification in the commit descriptio
 - Client reference implementation: github.com/alexpevzner/sane-airscan
   (eSCL+WSD; 0.99.38 in fresh repositories as of 26.10.2026)
 - Rust eSCL flow reference: github.com/ElXreno/escl-scan
-- Brother SNMP OctetString reverse (incl. MFC-L2720DW — the same series):
+- Brother SNMP OctetString notes (incl. MFC-L2720DW — the same series):
   github.com/saper-2/BRN-Printer-sCounters-Info
 - Brother monitoring over SNMP (Printer-MIB, codes -3/-2/-1):
   claudiokuenzler.com/blog/1422/
@@ -474,11 +478,10 @@ Crate policy: a new crate — only with a justification in the commit descriptio
 | M5 Release | icon, bundler (deb/rpm/AppImage), README+license, GitHub | repository published, install from the artifact |
 | v2 | mDNS discovery, OCR add-on, «Scan to PC» from the device body, other distributions | — |
 
-«Scan to PC» (v2), clarified 27.10.2026 from the reference: the Windows client
-receives the button press via WIA/STI push events plus two dispatch services —
-not portable. The Linux path: register prindeck as a scan destination in the
-device web panel (EWS scan-destination/Scan-to-PC pages, see §13.10) and catch
-the press by polling eSCL `ScannerStatus` — spike first (§13.11).
+«Scan to PC» (v2), re-scoped 27.10.2026 on the device: the panel offers no
+scan-destination registration on this firmware (§13.10, §13.11), so the
+open-protocol path is to catch the hardware button press by polling eSCL
+`ScannerStatus` — spike first (§13.11).
 
 ## 13. Spikes and open questions
 
@@ -496,7 +499,9 @@ the press by polling eSCL `ScannerStatus` — spike first (§13.11).
 5. ~~PDF merging on the client~~ — **not needed at all**: the firmware merges
    whole stacks (№3). The M2.5 `lopdf` merge module was added per the original
    plan and removed once the spike proved this (§10) — no merge crate remains.
-6. License for GitHub: **MIT or Apache-2.0** — decide by M5 (dual is possible).
+6. ~~License for GitHub~~ — **resolved 28.10.2026: MIT**. Short and permissive;
+   Apache-2.0 was rejected as unnecessary for an application without patent
+   exposure or corporate contributors.
 7. ~~Vanilla DOM vs Preact for the UI~~ — **resolved at M2 (27.10.2026)**: vanilla
    TypeScript modules chosen (two screens ≈ 700 lines of DOM code). Revisit
    when `ui/src/screens/print.ts` exceeds ~400 lines.
@@ -508,16 +513,16 @@ the press by polling eSCL `ScannerStatus` — spike first (§13.11).
 10. ~~**EWS deep-link paths**~~ — **resolved 27.10.2026** (live check; GET-only
     plus one user-authorized login; `docs/ews-l2710dw.md`): public zone verified
     (status, maintenance info, sleep, auto power-off, replace toner…); behind
-    the login the reference admin/network paths exist (`/admin/date.html`,
+    the login the admin/network paths exist (`/admin/date.html`,
     `/admin/firmwareupdate.html`, `/net/wired|wireless/link_tcpip_detail.html`,
     `/net/net/sntp.html`), the scan paths do not (`/scan/scandestination.html`,
     `/scan/scantopc.html` → 404 — the real page is `/scan/scanfrompc.html`,
-    only a Pull Scan toggle). R1 ships the full verified set; credentials stay
+    only a Pull Scan toggle). The settings screen ships the full verified set; credentials stay
     out of the repo.
 11. **Scan-to-PC mechanism** (v2 gate, §12): the panel path is **dead** —
     verified 27.10.2026 that the EWS offers no destination registration
     (`/scan/scanfrompc.html` is only a Pull Scan Enabled/Disabled toggle; the
-    iPrint&Scan destination pages are 404; `ScannerCapabilities` declares
+    candidate destination pages are 404; `ScannerCapabilities` declares
     `xmlns:dest` with no elements). Remaining question for the spike: what the
     device does when the hardware scan button is pressed — does anything
     appear in eSCL `ScannerStatus`/`ScanJobs`, or is the button software-bound

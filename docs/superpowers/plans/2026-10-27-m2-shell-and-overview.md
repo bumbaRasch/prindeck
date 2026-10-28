@@ -17,7 +17,7 @@
 - All code strings — errors, logs, test messages — are English. Russian UI copy lives only in `ui/index.html`, `ui/src/labels.ts` and `*_LABEL` constants in Rust.
 - Commit gate, all green: `cargo test --workspace`, `cargo check --workspace --all-targets`, `cargo clippy --workspace --all-targets -- -D warnings`, `npm run typecheck`, `npm run build`, `npm run check:code-language`, `npm run check:line-count`.
 - The 200-line cap is enforced by `npm run check:line-count` over tracked sources in `src-tauri/src` and `ui`; a file over the cap must be listed in `scripts/line-count-baseline.txt` and leaves the list when it is split.
-- Device: `192.168.187.36`, community `public`, SNMP port 161, eSCL `http://192.168.187.36/eSCL/`.
+- Device: `192.0.2.10`, community `public`, SNMP port 161, eSCL `http://192.0.2.10/eSCL/`.
 - Never start a scan or occupy the printer without an explicit request from the user; SNMP GETs are read-only and safe.
 - Window: default 900×680, `minWidth: 640`, `minHeight: 480`.
 - UI: sidebar 224 px at ≥ 820 px window width, 64 px icon rail at 640–819 px; content reflows by container query at 560 px.

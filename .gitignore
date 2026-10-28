@@ -35,6 +35,6 @@ tmp/
 
 .opencode/skills/
 
-# Vendor reference material — never publish (installer binary, RE notes, evidence)
+# Local research material (not tracked, not distributed)
 reference/
 docs/ref/

@@ -11,7 +11,8 @@ current plan in `docs/superpowers/plans/`.
   `cargo check --workspace --all-targets`,
   `cargo clippy --workspace --all-targets -- -D warnings`, `npm run typecheck`,
   `npm run build`, `npm run check:code-language` — all green, no warnings.
-- Device: `192.168.187.36`, eSCL `http://192.168.187.36/eSCL/`, scans in
+- Device: the printer address from the local config (the docs use
+  `192.0.2.10` as an example), eSCL at `http://<host>/eSCL/`, scans in
   `~/Documents/scans`, config at `~/.config/prindeck/config.json`.
 - The printer is physical: a scan takes ~8 s and occupies the device. Start a
   scan (from code, curl, or the UI) only when the user explicitly asks for it.
@@ -45,7 +46,7 @@ to the **Muse Spark 1.3 Contributor** model
 | `docs/ews-l2710dw.md` | device web panel: URL scheme, auth model, verified public links, gated-zone notes |
 | `docs/m1-prerequisites.md` | Tauri build environment |
 | `docs/superpowers/plans/` | step-by-step work plans |
-| `docs/ref/` | local-only, **gitignored**: reverse-engineering notes on the iPrint&Scan reference (installer anatomy, feature inventory, gap analysis, raw evidence) — never publish |
+| `docs/ref/` | local-only, **gitignored**: research notes and raw evidence (installer anatomy, feature inventory, gap analysis); not tracked and not distributed |
 
 ## Rules
 

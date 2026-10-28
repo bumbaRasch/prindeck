@@ -1,9 +1,10 @@
 # Web panel (EWS) — MFC-L2710DW facts
 
-Device: `http://192.168.187.36/`. Checked 27.10.2026 with GET-only probes
+Device: `http://192.0.2.10/` (RFC 5737 example address; use your printer's).
+Checked 27.10.2026 with GET-only probes
 (two parallel sessions, ~35 requests, 5 s timeouts, no login POSTs, no scan
-jobs). Marking: **observed** / **inferred** / **unknown** per the REA-adapted
-discipline. Feeds PRD F5/R1, R7 and §13.10, §13.11.
+jobs). Marking: **observed** / **inferred** / **unknown**. Feeds PRD F5/R1, R7
+and §13.10, §13.11.
 
 ## Panel structure (observed)
 

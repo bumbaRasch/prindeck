@@ -1,6 +1,7 @@
 # SNMP on Brother MFC-L2710DW: OID spike (M0)
 
-Captured 26.10.2026 from a live device. Script: `scripts/probe-snmp.mjs`
+Captured 26.10.2026 from a live device. Addresses use the RFC 5737 example
+`192.0.2.10`; replace it with your printer's address. Script: `scripts/probe-snmp.mjs`
 (SNMPv2c GET, own BER codec, `node:dgram`, no dependencies).
 Raw output: `fixtures/snmp/probe-2026-10-26.json`.
 
@@ -14,7 +15,7 @@ Raw output: `fixtures/snmp/probe-2026-10-26.json`.
 | Timeout | `2000` ms per attempt |
 | Retries | `3` (new request-id and new socket on every attempt) |
 | Request | one `GET` per OID (not bulk, not walk) |
-| Address | `192.168.187.36` |
+| Address | `192.0.2.10` |
 | Run time | `2026-10-26T20:41:22Z` – `2026-10-26T20:41:25Z` |
 | Web check | `2026-10-26T21:42+01:00` (≈ a minute later, values did not change) |
 
@@ -22,7 +23,7 @@ All OIDs answered on the first attempt; RTT from the fixture — 95–209 ms. Th
 community `public` works; there is no authentication.
 
 To read values from the web panel for the check, use the page
-`http://192.168.187.36/general/information.html?kind=item` (no login):
+`http://192.0.2.10/general/information.html?kind=item` (no login):
 it has `Page Counter`, `Average Coverage`, `Drum Unit %`, `Toner %`,
 `Replace Count`, `Total Paper Jams`.
 

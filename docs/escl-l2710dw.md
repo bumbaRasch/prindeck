@@ -1,6 +1,7 @@
 # eSCL on the Brother MFC-L2710DW: protocol spike (M0)
 
 Captured 26.10.2026 from the live device. All values are observed, not from documentation.
+Addresses use the RFC 5737 example `192.0.2.10`; replace it with your printer's address.
 Script: `scripts/escl-probe.mjs`. Raw responses: `fixtures/escl/`.
 
 ## 0. Bench
@@ -8,9 +9,9 @@ Script: `scripts/escl-probe.mjs`. Raw responses: `fixtures/escl/`.
 | Parameter | Value |
 |---|---|
 | Device | Brother MFC-L2710DW series |
-| Address | `192.168.187.36`, HTTP, port 80 |
+| Address | `192.0.2.10`, HTTP, port 80 |
 | HTTP server | `Server: debut/1.30` (Brother built-in httpd) |
-| eSCL base | `http://192.168.187.36/eSCL/` |
+| eSCL base | `http://192.0.2.10/eSCL/` |
 | Protocol version | `<pwg:Version>2.63</pwg:Version>` in capabilities and status |
 | Schema | `xsi:schemaLocation="http://schemas.hp.com/imaging/escl/2011/05/03 ../../schemas/eSCL-1_92.xsd"` |
 | Main Firmware | `ZJ` (web panel, Maintenance Information) |
@@ -62,10 +63,10 @@ Content-Type: text/xml
 Connection: close
 Server: debut/1.30
 Pragma: no-cache
-Location: http://192.168.187.36/eSCL/ScanJobs/<uuid-v1>
+Location: http://192.0.2.10/eSCL/ScanJobs/<uuid-v1>
 ```
 
-Scan job URI pattern: `http://192.168.187.36/eSCL/ScanJobs/<uuid-v1>`. The UUID in the
+Scan job URI pattern: `http://192.0.2.10/eSCL/ScanJobs/<uuid-v1>`. The UUID in the
 `Location` header is an absolute URL; in `ScannerStatus` the same scan job appears as the relative
 `<pwg:JobUri>/eSCL/ScanJobs/<uuid></pwg:JobUri>` and as `<pwg:JobUuid>urn:uuid:<uuid>`.
 

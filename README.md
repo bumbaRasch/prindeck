@@ -12,13 +12,13 @@ step-by-step plans in [`docs/superpowers/plans/`](docs/superpowers/plans/).
 
 **M0 — protocol spike: done.** **M1 — Tauri shell and eSCL scanning: done.**
 **M2 — navigation shell and device overview: done.** **M2.5 — print, history
-recording and ADF multi-sheet: done** (the final live device checks are
-pending, tracked in the PRD §14).
+recording and ADF multi-sheet: done.** **M4 — monitoring: done** (the final
+live device checks are pending, tracked in the PRD §14).
 
 - `ui/` + `src-tauri/` — Tauri 2 app (Rust + vanilla TypeScript): navigation
-  shell (left sidebar with three destinations — Скан, Обзор and Печать; icon
-  rail on narrow windows), scan screen, device overview over SNMP
-  (toner/drum levels, page and duplex counters), background status polling
+  shell (left sidebar with four destinations — Скан, Обзор, Печать and
+  Настройки; icon rail on narrow windows), scan screen, device overview over
+  SNMP (toner/drum levels, page and duplex counters), background status polling
   every 5 minutes with a cached first paint, tray icon, single instance. Both
   colour themes follow the system setting; the window can shrink to 640×480.
 - Print screen («Печать», M2.5) — queue-first: pick or drop a file, set copies
@@ -34,8 +34,12 @@ pending, tracked in the PRD §14).
   screen shows a partial badge with the reason.
 - History recording (M2.5) — every successful status poll writes a snapshot
   (toner, drum, counters) to `~/.local/share/prindeck/history.db` (SQLite).
-  Recording failures are logged and never interrupt polling; there is no UI
-  for the history yet (M4).
+  Recording failures are logged and never interrupt polling. The «Обзор»
+  screen charts toner and page counters for the last 90 days, notifications
+  fire when supplies drop below the configured thresholds, and the tray menu
+  opens the screens and the device panel. «Настройки» edits the device
+  address, scan folder, CUPS queue, SNMP community and poll interval with
+  live apply.
 - `scripts/escl-probe.mjs` — eSCL scan-job lifecycle (`fetch`-only, no deps).
 - `scripts/probe-snmp.mjs` — SNMPv2c GET with a hand-written BER codec
   (`node:dgram` only), including the batched three-varbind GET the app uses.
@@ -43,6 +47,12 @@ pending, tracked in the PRD §14).
   (xdg-desktop-portal; `grim` does not work on this Mutter session).
 - `fixtures/` — raw device responses (XML, JSON, ADF PDF/JPEG documents,
   `lpstat` output), captured 26–27.10.2026.
+
+## Language
+
+The interface is Russian for now; when i18n lands it follows the system
+locale and falls back to English. Code, documentation and commit messages are
+English.
 
 ## Building and running
 
@@ -65,7 +75,9 @@ cargo check --workspace --all-targets
 
 The config is created on first run at `~/.config/prindeck/config.json`
 (`device.host`, `scanDir`; optional `cupsQueue`, `snmp.community`,
-`pollSeconds`); scans are saved to `~/Documents/scans`.
+`pollSeconds`); scans are saved to `~/Documents/scans`. Open «Настройки» on
+first run and set the printer's own address — the documentation uses
+`192.0.2.10` as an example only.
 
 ## Behaviour
 
@@ -90,6 +102,10 @@ node scripts/escl-probe.mjs scan --source platen --dpi 300 --mode Grayscale8 \
   --format application/pdf --out ./scans
 node scripts/probe-snmp.mjs --json
 ```
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
 
 ## Disclaimer
 
