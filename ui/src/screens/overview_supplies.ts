@@ -95,7 +95,6 @@ function renderJam(count: number | null): void {
   if (els.stateJam.textContent !== text) {
     els.stateJam.textContent = text;
   }
-  els.stateJam.dataset["tone"] = count > 0 ? "warn" : "ok";
 }
 
 function renderDrumLine(pagesLeft: number | null): void {
