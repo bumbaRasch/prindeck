@@ -2,7 +2,9 @@
 name = "prindeck"
 version = "0.1.0"
 description = "prindeck — Brother MFC-L2710DW control panel"
-authors = ["bumbarasch"]
+authors = ["Dimitri Pisarev"]
+license = "MIT"
+repository = "https://github.com/bumbaRasch/prindeck"
 edition = "2024"
 
 [lib]
