@@ -127,6 +127,10 @@ impl State {
         kinds
     }
 
+    pub fn rearm(&self) {
+        self.lock().prev = None;
+    }
+
     fn lock(&self) -> MutexGuard<'_, StateSnapshot> {
         self.snapshot
             .lock()

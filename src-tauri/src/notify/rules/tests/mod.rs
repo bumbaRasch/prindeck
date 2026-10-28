@@ -1,4 +1,6 @@
-use super::{Measure, NotifyConfig, NotifyKind, State, evaluate};
+mod state;
+
+use super::{Measure, NotifyConfig, NotifyKind, evaluate};
 
 fn notify_config() -> NotifyConfig {
     NotifyConfig {
@@ -46,14 +48,6 @@ fn evaluate_disabled(prev: Option<Measure>, next: Measure, silent_streak: u32) -
     evaluate(prev.as_ref(), &next, silent_streak, true, &cfg)
 }
 
-fn fail(state: &State) -> Vec<NotifyKind> {
-    state.apply(&offline_toner(None), &notify_config())
-}
-
-fn succeed(state: &State, toner_percent: u8) -> Vec<NotifyKind> {
-    state.apply(&online_toner(Some(toner_percent)), &notify_config())
-}
-
 #[test]
 fn toner_threshold_crossing_fires_once() {
     let fired = evaluate_step(Some(online_toner(Some(20))), online_toner(Some(14)));
@@ -95,49 +89,6 @@ fn drum_threshold_crossing_fires_once() {
 fn first_poll_with_low_toner_still_fires() {
     let fired = evaluate_step(None, online_toner(Some(14)));
     assert_eq!(fired, vec![NotifyKind::TonerLow(14)]);
-}
-
-#[test]
-fn single_failed_poll_recovers_silently() {
-    let state = State::new();
-
-    assert_eq!(fail(&state), Vec::new());
-    assert_eq!(succeed(&state, 70), Vec::new());
-}
-
-#[test]
-fn recovery_after_two_failed_polls_fires_nothing() {
-    let state = State::new();
-
-    assert_eq!(fail(&state), Vec::new());
-    assert_eq!(fail(&state), Vec::new());
-    assert_eq!(succeed(&state, 70), Vec::new());
-}
-
-#[test]
-fn full_offline_episode_fires_silent_once_then_back_online() {
-    let state = State::new();
-
-    assert_eq!(fail(&state), Vec::new());
-    assert_eq!(fail(&state), Vec::new());
-    assert_eq!(fail(&state), vec![NotifyKind::Silent]);
-    assert_eq!(fail(&state), Vec::new(), "silent fires once per episode");
-    assert_eq!(succeed(&state, 70), vec![NotifyKind::BackOnline]);
-}
-
-#[test]
-fn second_offline_episode_fires_both_events_again() {
-    let state = State::new();
-
-    for _ in 0..3 {
-        fail(&state);
-    }
-    succeed(&state, 70);
-
-    assert_eq!(fail(&state), Vec::new());
-    assert_eq!(fail(&state), Vec::new());
-    assert_eq!(fail(&state), vec![NotifyKind::Silent]);
-    assert_eq!(succeed(&state, 70), vec![NotifyKind::BackOnline]);
 }
 
 #[test]

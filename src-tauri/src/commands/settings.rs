@@ -40,6 +40,10 @@ fn apply_live(app: &AppHandle, state: &AppState, previous: &Config) -> Result<()
         rebuild_client(state, &config)?;
     }
 
+    if config.notify != previous.notify {
+        notify::rearm(app);
+    }
+
     if config.scan_dir != previous.scan_dir
         && let Err(error) = app
             .asset_protocol_scope()

@@ -49,6 +49,10 @@ pub fn on_poll(app: &AppHandle, snapshot: &DeviceStatus) {
     }
 }
 
+pub fn rearm(app: &AppHandle) {
+    app.state::<State>().rearm();
+}
+
 fn rules_config(config: &crate::config::NotifyConfig) -> NotifyConfig {
     NotifyConfig {
         enabled: config.enabled,
