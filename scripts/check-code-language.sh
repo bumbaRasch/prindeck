@@ -13,7 +13,7 @@ failures=0
 
 for path in $sources; do
   case "$path" in
-    ui/index.html|ui/src/labels.ts) continue ;;
+    ui/index.html|ui/src/labels/*) continue ;;
   esac
 
   hits=$(grep -nP '[\x{0400}-\x{04FF}]' "$path" | grep -vE '^[0-9]+:const [A-Z0-9_]+_LABEL: &str = ' || true)
@@ -24,7 +24,7 @@ for path in $sources; do
 done
 
 if [ "$failures" -ne 0 ]; then
-  printf '\ncode must be English: only ui/index.html, ui/src/labels.ts and *_LABEL constants may contain UI copy\n'
+  printf '\ncode must be English: only ui/index.html, ui/src/labels/ and *_LABEL constants may contain UI copy\n'
   exit 1
 fi
 
