@@ -58,7 +58,7 @@ fn navigate_payload_is_the_bare_scan_screen_literal() {
 fn status(ok: bool) -> DeviceStatus {
     DeviceStatus {
         ok,
-        host: "192.168.187.36".to_string(),
+        host: "192.0.2.10".to_string(),
         toner_percent: None,
         drum_percent: None,
         jam_count: None,

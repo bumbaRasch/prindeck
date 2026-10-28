@@ -17,7 +17,7 @@ the report, the main agent will fix it.
 
 ## Environment
 
-- Project: `/home/bumbarasch/Documents/projects/prindeck`, branch `m1-scan`.
+- Project: the prindeck repository (the current working directory).
 - GNOME/Wayland session (`DISPLAY=:0`, `WAYLAND_DISPLAY=wayland-0`).
 - `grim` does not work here (Mutter without wlr-screencopy), `gnome-screenshot`,
   `xdotool`, `ydotool` are not installed. A screenshot — only via

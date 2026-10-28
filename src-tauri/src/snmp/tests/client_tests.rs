@@ -26,7 +26,7 @@ fn unreachable_host_is_a_transport_error() {
 
 #[test]
 fn snmp_address_gets_the_default_port() {
-    assert_eq!(with_port("192.168.187.36"), "192.168.187.36:161");
+    assert_eq!(with_port("192.0.2.10"), "192.0.2.10:161");
     assert_eq!(with_port("printer.local:1161"), "printer.local:1161");
     assert_eq!(with_port("[fe80::1]"), "[fe80::1]:161");
     assert_eq!(with_port("[fe80::1]:1161"), "[fe80::1]:1161");

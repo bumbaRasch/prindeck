@@ -10,8 +10,8 @@ xsi:schemaLocation="http://schemas.hp.com/imaging/escl/2011/05/03 ../../schemas/
 <pwg:SerialNumber>REDACTED-SERIAL</pwg:SerialNumber>
 <scan:Manufacturer>Brother</scan:Manufacturer>
 <scan:UUID>00000000-0000-0000-0000-000000000000</scan:UUID>
-<scan:AdminURI>http://192.168.187.36/net/net/airprint.html</scan:AdminURI>
-<scan:IconURI>http://192.168.187.36/icons/device-icons-128.png</scan:IconURI>
+<scan:AdminURI>http://192.0.2.10/net/net/airprint.html</scan:AdminURI>
+<scan:IconURI>http://192.0.2.10/icons/device-icons-128.png</scan:IconURI>
 <scan:Certifications>
 <scan:Certification>
 <scan:Name>mopria-certified-scan</scan:Name>

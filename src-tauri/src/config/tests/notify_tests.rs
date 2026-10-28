@@ -5,7 +5,7 @@ use crate::config::{Config, ConfigError, NotifyConfig};
 
 #[test]
 fn config_without_notify_names_the_missing_key() {
-    let json = r#"{"device":{"host":"192.168.187.36"},"scanDir":"/tmp/scans","toner":{"model":null,"yieldPages":null}}"#;
+    let json = r#"{"device":{"host":"192.0.2.10"},"scanDir":"/tmp/scans","toner":{"model":null,"yieldPages":null}}"#;
     let error = Config::from_json_str(json).expect_err("a config without notify must fail");
 
     assert!(
@@ -16,7 +16,7 @@ fn config_without_notify_names_the_missing_key() {
 
 #[test]
 fn config_without_toner_names_the_missing_key() {
-    let json = r#"{"device":{"host":"192.168.187.36"},"scanDir":"/tmp/scans","notify":{"enabled":true,"tonerPercent":15,"drumPercent":10}}"#;
+    let json = r#"{"device":{"host":"192.0.2.10"},"scanDir":"/tmp/scans","notify":{"enabled":true,"tonerPercent":15,"drumPercent":10}}"#;
     let error = Config::from_json_str(json).expect_err("a config without toner must fail");
 
     assert!(

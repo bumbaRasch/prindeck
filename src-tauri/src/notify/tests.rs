@@ -1,7 +1,7 @@
 use super::{measure_from_status, test_notification_payload};
 use crate::status::DeviceStatus;
 
-const HOST: &str = "192.168.187.36";
+const HOST: &str = "192.0.2.10";
 
 fn status(ok: bool, toner: Option<u32>, drum: Option<u32>) -> DeviceStatus {
     DeviceStatus {

@@ -1161,25 +1161,25 @@ mod tests {
 
     #[test]
     fn resolves_absolute_and_relative_location() {
-        let base = Url::parse("http://192.168.187.36/eSCL/").expect("base url");
+        let base = Url::parse("http://192.0.2.10/eSCL/").expect("base url");
 
         assert_eq!(
-            resolve_job_url(&base, "http://192.168.187.36/eSCL/ScanJobs/abc")
+            resolve_job_url(&base, "http://192.0.2.10/eSCL/ScanJobs/abc")
                 .expect("absolute")
                 .as_str(),
-            "http://192.168.187.36/eSCL/ScanJobs/abc"
+            "http://192.0.2.10/eSCL/ScanJobs/abc"
         );
         assert_eq!(
             resolve_job_url(&base, "/eSCL/ScanJobs/abc")
                 .expect("root relative")
                 .as_str(),
-            "http://192.168.187.36/eSCL/ScanJobs/abc"
+            "http://192.0.2.10/eSCL/ScanJobs/abc"
         );
         assert_eq!(
             resolve_job_url(&base, "ScanJobs/abc")
                 .expect("relative")
                 .as_str(),
-            "http://192.168.187.36/eSCL/ScanJobs/abc"
+            "http://192.0.2.10/eSCL/ScanJobs/abc"
         );
     }
 }

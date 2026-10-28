@@ -17,7 +17,7 @@ pub use error::ConfigError;
 pub use handle::ConfigHandle;
 pub use notify::{NotifyConfig, TonerConfig};
 
-pub const DEFAULT_HOST: &str = "192.168.187.36";
+pub const DEFAULT_HOST: &str = "192.0.2.10";
 pub const DEFAULT_CUPS_QUEUE: &str = "Brother_MFC_L2710DW_series";
 pub const DEFAULT_SNMP_COMMUNITY: &str = "public";
 pub const DEFAULT_POLL_SECONDS: u64 = 300;

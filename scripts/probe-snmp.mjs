@@ -300,7 +300,7 @@ function decodeCounters(varbinds) {
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
-    host: { type: 'string', default: '192.168.187.36' },
+    host: { type: 'string', default: '192.0.2.10' },
     port: { type: 'string', default: '161' },
     community: { type: 'string', default: 'public' },
     timeout: { type: 'string', default: '2000' },

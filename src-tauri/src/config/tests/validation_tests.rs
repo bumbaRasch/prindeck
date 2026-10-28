@@ -83,8 +83,8 @@ fn empty_host_is_an_error() {
 #[test]
 fn host_with_scheme_or_slash_is_an_error() {
     for host in [
-        "http://192.168.187.36",
-        "192.168.187.36/eSCL",
+        "http://192.0.2.10",
+        "192.0.2.10/eSCL",
         "192.168.1.1\\x",
         "user@192.168.1.1",
     ] {
@@ -95,7 +95,7 @@ fn host_with_scheme_or_slash_is_an_error() {
     }
 
     let mut json = sample_json();
-    json["device"]["host"] = json!("http://192.168.187.36");
+    json["device"]["host"] = json!("http://192.0.2.10");
     assert!(matches!(
         Config::from_json_str(&json.to_string()),
         Err(ConfigError::InvalidHost(_))
@@ -146,16 +146,16 @@ fn base_url_is_built_from_host() {
     let config = sample();
     let url = config.base_url().expect("base url");
 
-    assert_eq!(url.as_str(), "http://192.168.187.36/eSCL/");
+    assert_eq!(url.as_str(), "http://192.0.2.10/eSCL/");
 }
 
 #[test]
 fn base_url_keeps_port() {
     let mut config = sample();
-    config.device.host = "192.168.187.36:8080".to_string();
+    config.device.host = "192.0.2.10:8080".to_string();
     let url = config.base_url().expect("base url");
 
-    assert_eq!(url.as_str(), "http://192.168.187.36:8080/eSCL/");
+    assert_eq!(url.as_str(), "http://192.0.2.10:8080/eSCL/");
     assert_eq!(url.port(), Some(8080));
 }
 

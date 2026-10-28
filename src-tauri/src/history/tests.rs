@@ -28,7 +28,7 @@ fn snapshot(ts: &str) -> Snapshot {
 fn round_trip() {
     let status = DeviceStatus {
         ok: true,
-        host: "192.168.187.36".to_string(),
+        host: "192.0.2.10".to_string(),
         toner_percent: Some(40),
         drum_percent: Some(80),
         pages_total: Some(7753),

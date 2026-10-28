@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { parseArgs } from 'node:util';
 
-const HOST = process.env.PRINDECK_HOST ?? '192.168.187.36';
+const HOST = process.env.PRINDECK_HOST ?? '192.0.2.10';
 const BASE = `http://${HOST}/eSCL`;
 const DOC_TIMEOUT_MS = 120_000;
 

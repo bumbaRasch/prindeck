@@ -8,7 +8,7 @@ use super::{StatusCache, now_rfc3339};
 use crate::config::{Config, ConfigHandle};
 use crate::snmp::SnmpCounters;
 
-const HOST: &str = "192.168.187.36";
+const HOST: &str = "192.0.2.10";
 
 fn counters() -> SnmpCounters {
     SnmpCounters {
