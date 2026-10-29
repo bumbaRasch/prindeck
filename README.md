@@ -32,8 +32,7 @@ Prebuilt packages for x86_64 Linux are attached to each
 # Debian / Ubuntu
 sudo apt install ./prindeck_0.1.0_amd64.deb
 
-# Fedora / RHEL
-sudo dnf install ./prindeck_0.1.0-1.x86_64.rpm
+# Fedora / RHEL: use the AppImage for now — an .rpm ships from v0.1.1
 
 # Or run standalone (needs FUSE 2 — `libfuse2t64` on Ubuntu 24.04+)
 chmod +x prindeck_0.1.0_amd64.AppImage && ./prindeck_0.1.0_amd64.AppImage
@@ -65,7 +64,7 @@ packages — the exact list is in
 ```sh
 npm install
 npm run tauri dev        # run from source
-npm run tauri build -- --bundles deb,rpm,appimage
+npm run tauri build -- --bundles deb,appimage
 ```
 
 Development conventions, checks and the pre-commit ritual live in
