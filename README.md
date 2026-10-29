@@ -5,8 +5,7 @@ shipped: device status, toner and drum levels, eSCL scanning, CUPS printing,
 a tray icon, desktop notifications. No vendor drivers, no binary blobs —
 open protocols only (eSCL, SNMP, CUPS).
 
-![Scan screen](docs/screenshots/scan.png)
-![Device overview](docs/screenshots/overview.png)
+<!-- Screenshots return with the first device-online pass: docs/post-release.md, task 3. -->
 
 ## What it does
 
