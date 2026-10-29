@@ -1,0 +1,51 @@
+[package]
+name = "prindeck"
+version = "0.1.0"
+description = "prindeck — Brother MFC-L2710DW control panel"
+authors = ["Dimitri Pisarev"]
+license = "MIT"
+repository = "https://github.com/bumbaRasch/prindeck"
+edition = "2024"
+
+[lib]
+name = "prindeck_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.13", default-features = false, features = ["charset"] }
+quick-xml = "0.42"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "7"
+rusqlite = { version = "0.41", features = ["bundled"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+snmp2 = "0.5"
+tokio = { version = "1", features = ["time"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+
+[lints.rust]
+ambiguous_negative_literals = "warn"
+missing_debug_implementations = "warn"
+redundant_imports = "warn"
+redundant_lifetimes = "warn"
+trivial_numeric_casts = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unused_lifetimes = "warn"
+
+[lints.clippy]
+all = "warn"

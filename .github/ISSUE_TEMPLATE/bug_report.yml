@@ -1,0 +1,69 @@
+name: Bug report
+description: Something in prindeck does not work as expected.
+labels: ["type: bug", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more detail you give, the faster it can be reproduced and fixed: what you did, what the app did, and what you expected instead.
+
+        **Redact secrets before posting.** Do not paste SNMP community strings, real IP addresses, MAC addresses or hostnames. Use `192.0.2.10`-style placeholders instead. See [SECURITY.md](https://github.com/bumbaRasch/prindeck/blob/main/SECURITY.md) for what belongs in a private report.
+
+        The probe commands asked for below are read-only: they query device capabilities and status, and never start a scan.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the actual behaviour and what you expected instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: prindeck version or commit
+      placeholder: "Example: 0.1.0 or the commit you built"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS, distribution and desktop session
+      placeholder: "Example: Ubuntu 26.04, GNOME Wayland (cat /etc/os-release, echo $XDG_SESSION_TYPE)"
+    validations:
+      required: true
+  - type: input
+    id: printer
+    attributes:
+      label: Printer model and firmware
+    validations:
+      required: true
+  - type: input
+    id: address-kind
+    attributes:
+      label: How is the device addressed?
+      description: IP literal, hostname, mDNS name or non-standard port. Do not paste the real address.
+    validations:
+      required: false
+  - type: textarea
+    id: probes
+    attributes:
+      label: Probe output
+      description: Paste the output of `node scripts/escl-probe.mjs caps` and `node scripts/probe-snmp.mjs --json`, redacted as described above.
+      render: shell
+    validations:
+      required: true
+  - type: upload
+    id: screenshots
+    attributes:
+      label: Screenshots
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I redacted secrets (community strings, addresses, MACs, hostnames)
+          required: true
+        - label: I searched existing issues and discussions
+          required: true

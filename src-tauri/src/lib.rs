@@ -1,0 +1,121 @@
+#[cfg(desktop)]
+pub mod autostart;
+pub mod commands;
+pub mod config;
+pub mod escl;
+pub mod history;
+pub mod notify;
+pub mod print;
+pub mod snmp;
+pub mod status;
+#[cfg(desktop)]
+pub mod tray;
+
+use std::sync::Mutex;
+
+use commands::AppState;
+use history::{History, HistoryHandle};
+use tauri::{Manager, WindowEvent};
+
+fn init_tracing() {
+    use tracing_subscriber::EnvFilter;
+
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("prindeck=info"));
+
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .try_init();
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    init_tracing();
+
+    let builder = tauri::Builder::default();
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        tray::show_main_window(app);
+    }));
+
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        None,
+    ));
+
+    builder
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
+        .manage(AppState::initialize())
+        .setup(|app| {
+            #[cfg(desktop)]
+            if let Err(error) = tray::setup(app) {
+                tracing::error!(%error, "failed to create the tray icon");
+            }
+
+            let config = app.state::<AppState>().config.get();
+            #[cfg(desktop)]
+            autostart::apply(app.handle(), config.autostart);
+            app.manage(status::StatusCache::new(config.device.host.clone()));
+            app.manage(notify::State::default());
+            #[cfg(desktop)]
+            tray::refresh(app.handle());
+
+            if let Err(error) = app
+                .asset_protocol_scope()
+                .allow_directory(&config.scan_dir, false)
+            {
+                tracing::warn!(
+                    %error,
+                    dir = %config.scan_dir.display(),
+                    "failed to allow the scan directory for the asset protocol"
+                );
+            }
+
+            let history = match history::default_path().and_then(|path| History::open(&path)) {
+                Ok(history) => Some(history),
+                Err(error) => {
+                    tracing::error!(%error, "failed to open the history database");
+                    None
+                }
+            };
+            app.manage(HistoryHandle(Mutex::new(history)));
+
+            status::start_polling(app.handle().clone());
+
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if let Err(error) = window.hide() {
+                    tracing::error!(%error, "failed to hide the window");
+                }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::get_capabilities,
+            commands::start_scan,
+            commands::cancel_scan,
+            commands::open_scan_folder,
+            commands::get_startup_error,
+            commands::get_config,
+            commands::set_config,
+            commands::get_status,
+            commands::refresh_status,
+            commands::open_printer_panel,
+            commands::open_firmware_page,
+            commands::get_history,
+            commands::get_locale_hint,
+            commands::print_file,
+            commands::get_queue,
+            commands::cancel_print,
+            commands::set_tray_labels,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

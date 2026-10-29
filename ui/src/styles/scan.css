@@ -1,0 +1,143 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  background: var(--surface-muted);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 15px;
+}
+
+.select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin-top: -6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button--primary {
+  flex: 1 1 240px;
+  min-height: 48px;
+  padding: 0 28px;
+  background: var(--primary);
+  color: var(--primary-text);
+  font-size: 16px;
+}
+
+.button--primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.button--secondary {
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.button--secondary:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.button--ghost {
+  flex: none;
+  min-height: 34px;
+  padding: 0 12px;
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+  font-size: 13px;
+}
+
+.button--ghost:hover:not(:disabled) {
+  background: rgb(127 127 127 / 12%);
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.result-title {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+@container content (max-width: 559px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

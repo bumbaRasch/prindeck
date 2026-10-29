@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Tauri build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential pkg-config libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - name: Rust stable
+        run: rustup update stable && rustup default stable
+      - name: Cargo registry cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-deps-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-deps-${{ runner.os }}-
+      - name: Rust checks
+        run: |
+          cargo test --workspace
+          cargo check --workspace --all-targets
+          cargo clippy --workspace --all-targets -- -D warnings
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - name: Frontend checks
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+          npm run check:code-language
+          npm run check:line-count
+          npm run check:i18n

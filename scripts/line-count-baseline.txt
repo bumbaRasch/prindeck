@@ -1,0 +1,3 @@
+# tracked sources over the 200-line cap; an entry is removed when the file is split
+src-tauri/src/escl.rs
+ui/src/locales/ar.ts
