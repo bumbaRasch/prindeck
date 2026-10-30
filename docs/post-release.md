@@ -30,9 +30,10 @@ section (already mentions rpm).
 
 ## 3. Screenshots refresh
 
-`docs/screenshots/{scan,overview,print}.png` referenced by the README —
-shoot with the device online, `PRINDECK_LOCALE=en`, window fronted, default
-size (see `docs/screenshots/README.md`).
+Done: `docs/screenshots/{scan,print,settings}.png` are in the README, shot
+with the device online, `PRINDECK_LOCALE=en`, dark theme, maximized window and
+the `192.0.2.10` placeholder address. The Overview screen is described in the
+README bullets only — no screenshot for it, by decision on 2026-10-30.
 
 ## 4. Live acceptance leftovers (device session)
 

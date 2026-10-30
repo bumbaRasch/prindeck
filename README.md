@@ -5,7 +5,7 @@ shipped: device status, toner and drum levels, eSCL scanning, CUPS printing,
 a tray icon, desktop notifications. No vendor drivers, no binary blobs —
 open protocols only (eSCL, SNMP, CUPS).
 
-<!-- Screenshots return with the first device-online pass: docs/post-release.md, task 3. -->
+![Scan screen](docs/screenshots/scan.png)
 
 ## What it does
 
@@ -21,6 +21,13 @@ open protocols only (eSCL, SNMP, CUPS).
 - **Stays out of the way** — tray icon with a status colour, background
   polling, edge-triggered notifications for low supplies and outages, starts
   with your session if you want it to.
+
+## Screens
+
+<p align="center">
+  <img src="docs/screenshots/print.png" alt="Print screen" width="49%">
+  <img src="docs/screenshots/settings.png" alt="Settings screen" width="49%">
+</p>
 
 ## Install
 
