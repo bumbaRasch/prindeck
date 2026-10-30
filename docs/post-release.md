@@ -45,3 +45,12 @@ entry appears/removes).
 
 Native review of the ar/ja/zh community drafts; maintainer pass over uk
 ("Колірний" spelling) and the ru `scan.filesReady` 21-file plural form.
+
+## 6. Revisit the dismissed glib alert
+
+Dependabot alert 1 (`GHSA-wrw7-89jp-8q8g`, `glib` < 0.20.0) was dismissed as
+`not_used` on 2026-10-30. `glib 0.18.5` arrives only through Tauri's GTK3
+stack (`gtk = "0.18"`), the patched 0.20 needs `gtk 0.19`, and no crate in the
+tree constructs or calls `glib::VariantStrIter`. Once Tauri adopts gtk 0.19 /
+glib ≥ 0.20, bump the lockfile, rebuild the artifacts and re-check the alert
+is gone instead of dismissed.
